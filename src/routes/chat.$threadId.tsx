@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
 
@@ -40,7 +40,6 @@ export const Route = createFileRoute("/chat/$threadId")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
     if (!data.session) {
-      const { redirect } = await import("@tanstack/react-router");
       throw redirect({ to: "/" });
     }
   },
