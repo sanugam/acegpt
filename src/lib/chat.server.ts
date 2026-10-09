@@ -77,9 +77,9 @@ function json(status: number, body: unknown) {
 }
 
 export async function handleChat(request: Request) {
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
-  const apiKey = process.env.LOVABLE_API_KEY;
+  const SUPABASE_URL = process.env["SUPABASE_URL"];
+  const SUPABASE_KEY = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  const apiKey = process.env["LOVABLE_API_KEY"];
   if (!SUPABASE_URL || !SUPABASE_KEY || !apiKey) {
     return json(500, { error: "Server is not configured." });
   }

@@ -36,7 +36,10 @@ export function Sidebar({ activeId }: { activeId: string }) {
 
   async function remove(id: string) {
     const { error } = await supabase.from("threads").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     await qc.invalidateQueries({ queryKey: ["threads"] });
     if (id === activeId) {
       const next = threads.find((t) => t.id !== id);

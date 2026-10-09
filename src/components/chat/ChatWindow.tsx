@@ -84,7 +84,7 @@ export function ChatWindow({
   async function startShare() {
     try {
       const s = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-      s.getVideoTracks()[0].addEventListener("ended", () => setStream(null));
+      s.getVideoTracks()[0]?.addEventListener("ended", () => setStream(null));
       setStream(s);
       toast.success("Screen shared. Ace will see your screen with every message.");
     } catch {
@@ -274,7 +274,7 @@ function ChatMessage({ message, streaming }: { message: UIMessage; streaming: bo
                     <ToolHeader
                       type={tp.type}
                       state={tp.state}
-                      title={tp.type === "tool-web_search" ? "Searching the web" : undefined}
+                      {...(tp.type === "tool-web_search" ? { title: "Web search" } : {})}
                     />
                     <ToolContent>
                       <ToolInput input={tp.input} />
