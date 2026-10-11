@@ -60,7 +60,7 @@ export function ChatWindow({
     [threadId],
   );
 
-  const { messages, sendMessage, status, stop } = useChat({
+  const { messages, sendMessage, regenerate, status, stop } = useChat({
     id: threadId,
     messages: initialMessages,
     transport,
