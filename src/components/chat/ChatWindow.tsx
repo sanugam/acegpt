@@ -151,8 +151,14 @@ export function ChatWindow({
             </div>
           )}
 
-          {messages.map((m) => (
-            <ChatMessage key={m.id} message={m} streaming={busy && m.id === messages.at(-1)?.id} />
+          {messages.map((m, idx) => (
+            <ChatMessage
+              key={m.id}
+              message={m}
+              streaming={busy && m.id === messages.at(-1)?.id}
+              canRegenerate={!busy && m.role === "assistant" && idx === messages.length - 1}
+              onRegenerate={() => regenerate()}
+            />
           ))}
 
           {status === "submitted" && (
