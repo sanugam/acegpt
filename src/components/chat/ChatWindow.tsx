@@ -325,6 +325,28 @@ function ChatMessage({
             )}
           </div>
         )}
+        {message.role === "assistant" && !streaming && text && (
+          <div className="mt-1 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={copy}
+              aria-label="Copy reply"
+              className="rounded-md p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
+            </button>
+            {canRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                aria-label="Regenerate reply"
+                className="rounded-md p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              >
+                <RotateCcw className="size-3.5" />
+              </button>
+            )}
+          </div>
+        )}
       </MessageContent>
     </Message>
   );
