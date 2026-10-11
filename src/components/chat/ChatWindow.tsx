@@ -236,8 +236,30 @@ function AttachmentChips() {
   );
 }
 
-function ChatMessage({ message, streaming }: { message: UIMessage; streaming: boolean }) {
+function ChatMessage({
+  message,
+  streaming,
+  canRegenerate,
+  onRegenerate,
+}: {
+  message: UIMessage;
+  streaming: boolean;
+  canRegenerate?: boolean;
+  onRegenerate?: () => void;
+}) {
   const sources = message.parts.filter((p) => p.type === "source-url");
+  const [copied, setCopied] = useState(false);
+  const text = message.parts
+    .filter((p) => p.type === "text")
+    .map((p) => p.text)
+    .join("\n\n");
+
+  async function copy() {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
     <Message from={message.role}>
       <MessageContent>
