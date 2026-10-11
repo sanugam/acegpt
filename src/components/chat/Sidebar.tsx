@@ -79,8 +79,24 @@ export function Sidebar({ activeId }: { activeId: string }) {
           <PenSquare className="size-4" /> New chat
         </Button>
       </div>
+      <div className="mt-3 px-3">
+        <div className="flex items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-1.5">
+          <Search className="size-4 shrink-0 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search chats"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+      </div>
       <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-2">
-        {threads.map((t) => (
+        {filtered.length === 0 && (
+          <p className="px-3 py-2 text-xs text-muted-foreground">
+            {query ? "No chats match your search." : "No chats yet."}
+          </p>
+        )}
+        {filtered.map((t) => (
           <div
             key={t.id}
             className={cn(
@@ -88,21 +104,55 @@ export function Sidebar({ activeId }: { activeId: string }) {
               t.id === activeId ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
             )}
           >
-            <Link
-              to="/chat/$threadId"
-              params={{ threadId: t.id }}
-              className="flex-1 truncate px-3 py-2"
-            >
-              {t.title}
-            </Link>
-            <button
-              type="button"
-              aria-label="Delete chat"
-              onClick={() => remove(t.id)}
-              className="mr-1 rounded p-1.5 text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
-            >
-              <Trash2 className="size-4" />
-            </button>
+            {editingId === t.id ? (
+              <div className="flex flex-1 items-center gap-1 px-2 py-1">
+                <input
+                  autoFocus
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") rename(t.id);
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  className="w-full rounded bg-background px-2 py-1 text-sm outline-none"
+                />
+                <button type="button" aria-label="Save name" onClick={() => rename(t.id)} className="p-1 text-primary">
+                  <Check className="size-4" />
+                </button>
+                <button type="button" aria-label="Cancel" onClick={() => setEditingId(null)} className="p-1 text-muted-foreground">
+                  <X className="size-4" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link
+                  to="/chat/$threadId"
+                  params={{ threadId: t.id }}
+                  className="flex-1 truncate px-3 py-2"
+                >
+                  {t.title}
+                </Link>
+                <button
+                  type="button"
+                  aria-label="Rename chat"
+                  onClick={() => {
+                    setEditingId(t.id);
+                    setEditTitle(t.title);
+                  }}
+                  className="rounded p-1.5 text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
+                >
+                  <Pencil className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Delete chat"
+                  onClick={() => remove(t.id)}
+                  className="mr-1 rounded p-1.5 text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </>
+            )}
           </div>
         ))}
       </nav>
