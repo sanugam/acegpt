@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 export function Sidebar({ activeId }: { activeId: string }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [query, setQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
   const { data: threads = [] } = useQuery({
     queryKey: ["threads"],
     queryFn: async () => {
