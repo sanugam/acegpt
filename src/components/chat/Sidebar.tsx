@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LogOut, PenSquare, Trash2 } from "lucide-react";
+import { Check, LogOut, Pencil, PenSquare, Search, Trash2, X } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import logo from "@/assets/ace-logo.png";

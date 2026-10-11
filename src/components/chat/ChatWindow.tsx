@@ -2,7 +2,7 @@ import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Globe, MonitorUp, MonitorX, Paperclip } from "lucide-react";
+import { Check, Copy, Globe, MonitorUp, MonitorX, Paperclip, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import logo from "@/assets/ace-logo.png";
