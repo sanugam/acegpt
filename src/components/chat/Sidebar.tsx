@@ -38,6 +38,22 @@ export function Sidebar({ activeId }: { activeId: string }) {
     }
   }
 
+  async function rename(id: string) {
+    const title = editTitle.trim();
+    setEditingId(null);
+    if (!title) return;
+    const { error } = await supabase.from("threads").update({ title }).eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await qc.invalidateQueries({ queryKey: ["threads"] });
+  }
+
+  const filtered = threads.filter((t) =>
+    t.title.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
   async function remove(id: string) {
     const { error } = await supabase.from("threads").delete().eq("id", id);
     if (error) {
