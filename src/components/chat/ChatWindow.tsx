@@ -2,7 +2,7 @@ import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Globe, MonitorUp, MonitorX, Paperclip } from "lucide-react";
+import { Check, Copy, Globe, MonitorUp, MonitorX, Paperclip, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import logo from "@/assets/ace-logo.png";
@@ -60,7 +60,7 @@ export function ChatWindow({
     [threadId],
   );
 
-  const { messages, sendMessage, status, stop } = useChat({
+  const { messages, sendMessage, regenerate, status, stop } = useChat({
     id: threadId,
     messages: initialMessages,
     transport,
@@ -151,8 +151,14 @@ export function ChatWindow({
             </div>
           )}
 
-          {messages.map((m) => (
-            <ChatMessage key={m.id} message={m} streaming={busy && m.id === messages.at(-1)?.id} />
+          {messages.map((m, idx) => (
+            <ChatMessage
+              key={m.id}
+              message={m}
+              streaming={busy && m.id === messages.at(-1)?.id}
+              canRegenerate={!busy && m.role === "assistant" && idx === messages.length - 1}
+              onRegenerate={() => regenerate()}
+            />
           ))}
 
           {status === "submitted" && (
@@ -230,8 +236,30 @@ function AttachmentChips() {
   );
 }
 
-function ChatMessage({ message, streaming }: { message: UIMessage; streaming: boolean }) {
+function ChatMessage({
+  message,
+  streaming,
+  canRegenerate,
+  onRegenerate,
+}: {
+  message: UIMessage;
+  streaming: boolean;
+  canRegenerate?: boolean;
+  onRegenerate?: () => void;
+}) {
   const sources = message.parts.filter((p) => p.type === "source-url");
+  const [copied, setCopied] = useState(false);
+  const text = message.parts
+    .filter((p) => p.type === "text")
+    .map((p) => p.text)
+    .join("\n\n");
+
+  async function copy() {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
     <Message from={message.role}>
       <MessageContent>
@@ -294,6 +322,28 @@ function ChatMessage({ message, streaming }: { message: UIMessage; streaming: bo
                   <Globe className="size-3" /> {s.title || new URL(s.url).hostname}
                 </a>
               ) : null,
+            )}
+          </div>
+        )}
+        {message.role === "assistant" && !streaming && text && (
+          <div className="mt-1 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={copy}
+              aria-label="Copy reply"
+              className="rounded-md p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
+            </button>
+            {canRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                aria-label="Regenerate reply"
+                className="rounded-md p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              >
+                <RotateCcw className="size-3.5" />
+              </button>
             )}
           </div>
         )}
