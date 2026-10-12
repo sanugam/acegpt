@@ -11,7 +11,13 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
+import {
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputButton,
@@ -24,10 +30,17 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@/components/ai-elements/tool";
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+} from "@/components/ai-elements/tool";
 import { supabase } from "@/integrations/supabase/client";
 import type { Deck } from "@/lib/pptx";
 import { PresentationCard } from "./PresentationCard";
+import { AnswerDownloads } from "./AnswerDownloads";
 
 const STARTERS = [
   "Write a 600-word persuasive essay on whether homework should be banned (Year 9).",
@@ -102,8 +115,15 @@ export function ChatWindow({
     const c = document.createElement("canvas");
     c.width = v.videoWidth * scale;
     c.height = v.videoHeight * scale;
-    c.getContext("2d")!.drawImage(v, 0, 0, c.width, c.height);
-    return { type: "file", mediaType: "image/jpeg", filename: "screen.jpg", url: c.toDataURL("image/jpeg", 0.8) };
+    const context = c.getContext("2d");
+    if (!context) return null;
+    context.drawImage(v, 0, 0, c.width, c.height);
+    return {
+      type: "file",
+      mediaType: "image/jpeg",
+      filename: "screen.jpg",
+      url: c.toDataURL("image/jpeg", 0.8),
+    };
   }
 
   useEffect(() => {
@@ -175,7 +195,13 @@ export function ChatWindow({
       <div className="mx-auto w-full max-w-3xl px-4 pb-5">
         {stream && (
           <div className="mb-2 flex items-center gap-3 rounded-xl border border-primary/40 bg-card p-2">
-            <video ref={videoRef} autoPlay muted playsInline className="h-16 w-28 rounded-md bg-background object-cover" />
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="h-16 w-28 rounded-md bg-background object-cover"
+            />
             <p className="flex-1 text-sm">
               <span className="font-semibold text-primary">Sharing your screen.</span>{" "}
               <span className="text-muted-foreground">A snapshot goes with each message.</span>
@@ -183,7 +209,12 @@ export function ChatWindow({
           </div>
         )}
         {!stream && <video ref={videoRef} className="hidden" />}
-        <PromptInput onSubmit={submit} multiple globalDrop className="rounded-2xl bg-card shadow-glow">
+        <PromptInput
+          onSubmit={submit}
+          multiple
+          globalDrop
+          className="rounded-2xl bg-card shadow-glow"
+        >
           <AttachmentChips />
           <PromptInputTextarea
             ref={textareaRef}
@@ -202,7 +233,11 @@ export function ChatWindow({
                 <span className="hidden sm:inline">{stream ? "Stop" : "Screen"}</span>
               </PromptInputButton>
             </PromptInputTools>
-            <PromptInputSubmit status={status} onStop={stop} disabled={!busy && !input.trim() && !stream} />
+            <PromptInputSubmit
+              status={status}
+              onStop={stop}
+              disabled={!busy && !input.trim() && !stream}
+            />
           </PromptInputFooter>
         </PromptInput>
       </div>
@@ -213,7 +248,10 @@ export function ChatWindow({
 function AttachButton() {
   const a = usePromptInputAttachments();
   return (
-    <PromptInputButton tooltip="Attach files (images, PDFs, CSV, docs)" onClick={() => a.openFileDialog()}>
+    <PromptInputButton
+      tooltip="Attach files (images, PDFs, CSV, docs)"
+      onClick={() => a.openFileDialog()}
+    >
       <Paperclip className="size-4" />
     </PromptInputButton>
   );
@@ -225,9 +263,17 @@ function AttachmentChips() {
   return (
     <div className="flex w-full flex-wrap gap-2 px-3 pt-3">
       {a.files.map((f) => (
-        <span key={f.id} className="flex items-center gap-2 rounded-md bg-secondary px-2 py-1 text-xs">
+        <span
+          key={f.id}
+          className="flex items-center gap-2 rounded-md bg-secondary px-2 py-1 text-xs"
+        >
           {f.filename ?? "file"}
-          <button type="button" aria-label="Remove" onClick={() => a.remove(f.id)} className="text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            aria-label="Remove"
+            onClick={() => a.remove(f.id)}
+            className="text-muted-foreground hover:text-foreground"
+          >
             ×
           </button>
         </span>
@@ -268,7 +314,9 @@ function ChatMessage({
           switch (part.type) {
             case "text":
               return message.role === "user" ? (
-                <p key={key} className="whitespace-pre-wrap">{part.text}</p>
+                <p key={key} className="whitespace-pre-wrap">
+                  {part.text}
+                </p>
               ) : (
                 <MessageResponse key={key}>{part.text}</MessageResponse>
               );
@@ -282,16 +330,23 @@ function ChatMessage({
               );
             case "file":
               return part.mediaType.startsWith("image/") ? (
-                <img key={key} src={part.url} alt={part.filename ?? "attachment"} className="max-h-48 rounded-lg border" />
+                <img
+                  key={key}
+                  src={part.url}
+                  alt={part.filename ?? "attachment"}
+                  className="max-h-48 rounded-lg border"
+                />
               ) : (
-                <span key={key} className="text-xs opacity-80">📎 {part.filename ?? "file"}</span>
+                <span key={key} className="text-xs opacity-80">
+                  📎 {part.filename ?? "file"}
+                </span>
               );
             case "tool-create_presentation":
               return (
                 <PresentationCard
                   key={key}
                   deck={(part.input ?? {}) as Partial<Deck>}
-                  ready={part.state === "output-available" || part.state === "input-available"}
+                  ready={part.state === "output-available"}
                 />
               );
             default:
@@ -318,7 +373,13 @@ function ChatMessage({
           <div className="mt-2 flex flex-wrap gap-2">
             {sources.map((s, i) =>
               s.type === "source-url" ? (
-                <a key={i} href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground">
+                <a
+                  key={i}
+                  href={s.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+                >
                   <Globe className="size-3" /> {s.title || new URL(s.url).hostname}
                 </a>
               ) : null,
@@ -326,26 +387,17 @@ function ChatMessage({
           </div>
         )}
         {message.role === "assistant" && !streaming && text && (
-          <div className="mt-1 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={copy}
-              aria-label="Copy reply"
-              className="rounded-md p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-            >
+          <MessageActions className="mt-1">
+            <MessageAction onClick={copy} tooltip="Copy reply">
               {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
-            </button>
+            </MessageAction>
+            <AnswerDownloads text={text} />
             {canRegenerate && (
-              <button
-                type="button"
-                onClick={onRegenerate}
-                aria-label="Regenerate reply"
-                className="rounded-md p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-              >
+              <MessageAction onClick={onRegenerate} tooltip="Regenerate reply">
                 <RotateCcw className="size-3.5" />
-              </button>
+              </MessageAction>
             )}
-          </div>
+          </MessageActions>
         )}
       </MessageContent>
     </Message>
