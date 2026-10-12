@@ -33,7 +33,7 @@ export async function buildDeck(deck: Deck, theme: ThemeName = "studio") {
           ...box,
           fontSize: e.size * 0.6,
           color: e.color,
-           bold: e.bold ?? false,
+          bold: e.bold ?? false,
           fontFace: e.display ? "Georgia" : "Aptos",
           margin: 0,
           valign: "top",
@@ -50,7 +50,12 @@ export async function downloadDeck(deck: Deck, theme: ThemeName = "studio") {
   const pptx = await buildDeck(deck, theme);
   const buffer = await pptx.write({ outputType: "arraybuffer" });
   const bytes = normalizePptx(new Uint8Array(buffer as ArrayBuffer));
-  saveBlob(new Blob([new Uint8Array(bytes)], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }), `${safeFilename(deck.title, "presentation")}.pptx`);
+  saveBlob(
+    new Blob([new Uint8Array(bytes)], {
+      type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    }),
+    `${safeFilename(deck.title, "presentation")}.pptx`,
+  );
 }
 
 export async function downloadDeckPdf(deck: Deck, theme: ThemeName = "studio") {

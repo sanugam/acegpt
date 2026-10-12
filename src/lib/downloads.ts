@@ -52,9 +52,10 @@ export async function downloadAnswer(text: string, format: "md" | "txt" | "docx"
     return new Paragraph({
       ...(heading
         ? {
-            heading: [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3][
-              (heading[1] ?? "#").length - 1
-            ] ?? HeadingLevel.HEADING_1,
+            heading:
+              [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3][
+                (heading[1] ?? "#").length - 1
+              ] ?? HeadingLevel.HEADING_1,
           }
         : {}),
       children: [new TextRun((heading?.[2] ?? line).replace(/\*\*(.*?)\*\*/g, "$1"))],

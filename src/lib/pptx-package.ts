@@ -6,8 +6,10 @@ export function normalizePptx(bytes: Uint8Array) {
   const types = files["[Content_Types].xml"];
   if (types) {
     files["[Content_Types].xml"] = strToU8(
-      strFromU8(types).replace(/<Override\b[^>]*PartName="([^"]+)"[^>]*\/>/g,
-        (tag, path: string) => files[path.replace(/^\//, "")] ? tag : ""),
+      strFromU8(types).replace(
+        /<Override\b[^>]*PartName="([^"]+)"[^>]*\/>/g,
+        (tag, path: string) => (files[path.replace(/^\//, "")] ? tag : ""),
+      ),
     );
   }
   const presentation = files["ppt/presentation.xml"];
