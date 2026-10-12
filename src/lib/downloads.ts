@@ -33,10 +33,10 @@ export function codeFiles(text: string) {
     cpp: "cpp",
   };
   return Array.from(text.matchAll(/```([^\n`]*)\n([\s\S]*?)```/g), (match, index) => {
-    const language = match[1].trim().toLowerCase();
+    const language = (match[1] ?? "").trim().toLowerCase();
     return {
       filename: `ace-file-${index + 1}.${extensions[language] ?? (/^[a-z]{1,8}$/.test(language) ? language : "txt")}`,
-      content: match[2].replace(/\n$/, ""),
+      content: (match[2] ?? "").replace(/\n$/, ""),
     };
   });
 }
@@ -53,8 +53,8 @@ export async function downloadAnswer(text: string, format: "md" | "txt" | "docx"
       ...(heading
         ? {
             heading: [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3][
-              heading[1].length - 1
-            ],
+              (heading[1] ?? "#").length - 1
+            ] ?? HeadingLevel.HEADING_1,
           }
         : {}),
       children: [new TextRun((heading?.[2] ?? line).replace(/\*\*(.*?)\*\*/g, "$1"))],

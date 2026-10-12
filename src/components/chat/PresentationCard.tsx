@@ -18,10 +18,12 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
   const [image, setImage] = useState("");
   const pages = useMemo(() => deckPages(deck), [deck]);
   const active = Math.min(index, pages.length - 1);
+  const currentPage = pages[active];
   useEffect(() => {
     let cancelled = false;
     setImage("");
-    renderSlide(pages[active], active, pages.length, theme)
+    if (!currentPage) return;
+    renderSlide(currentPage, active, pages.length, theme)
       .then((url) => {
         if (!cancelled) setImage(url);
       })
@@ -31,7 +33,7 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
     return () => {
       cancelled = true;
     };
-  }, [pages, active, theme]);
+  }, [pages, currentPage, active, theme]);
 
   async function download(format: "pptx" | "pdf") {
     if (!ready || !deck.title || !deck.slides) return;
@@ -93,7 +95,7 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
         {image && (
           <img
             src={image}
-            alt={`Slide ${active + 1}: ${pages[active].title}`}
+            alt={`Slide ${active + 1}: ${currentPage?.title ?? ""}`}
             className="h-full w-full object-contain"
           />
         )}
@@ -121,10 +123,10 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
           <ChevronRight />
         </Button>
       </div>
-      {pages[active].notes && (
+      {currentPage?.notes && (
         <details className="border-t px-4 py-3 text-sm">
           <summary className="cursor-pointer text-muted-foreground">Speaker notes</summary>
-          <p className="mt-2 whitespace-pre-wrap">{pages[active].notes}</p>
+          <p className="mt-2 whitespace-pre-wrap">{currentPage.notes}</p>
         </details>
       )}
     </div>
