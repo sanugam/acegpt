@@ -1,36 +1,40 @@
-export type Deck = {
-  title: string;
-  subtitle: string;
-  slides: { title: string; bullets: string[]; notes: string }[];
-};
+import { deckPages, renderSlide, slideElements, type Deck, type ThemeName } from "./presentation-design";
+import { safeFilename, saveBlob } from "./downloads";
+export type { Deck } from "./presentation-design";
 
-const INK = "1B2233";
-const CHALK = "F4F1E6";
-const YELLOW = "F5D63D";
-
-export async function downloadDeck(deck: Deck) {
+export async function buildDeck(deck: Deck, theme: ThemeName = "studio") {
   const { default: PptxGenJS } = await import("pptxgenjs");
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE";
-
-  const cover = pptx.addSlide();
-  cover.background = { color: INK };
-  cover.addShape("rect", { x: 0.6, y: 3.9, w: 2.2, h: 0.12, fill: { color: YELLOW } });
-  cover.addText(deck.title, { x: 0.6, y: 1.6, w: 12, h: 1.8, fontSize: 44, bold: true, color: CHALK, fontFace: "Georgia" });
-  cover.addText(deck.subtitle, { x: 0.6, y: 4.2, w: 12, h: 1, fontSize: 20, color: "B8BFD0" });
-
-  for (const s of deck.slides) {
+  pptx.author = "Ace";
+  pptx.title = deck.title;
+  pptx.subject = deck.subtitle;
+  const pages = deckPages(deck);
+  const scale = 1 / 120;
+  pages.forEach((page, index) => {
     const slide = pptx.addSlide();
-    slide.background = { color: CHALK };
-    slide.addShape("rect", { x: 0, y: 0, w: 0.25, h: 7.5, fill: { color: YELLOW } });
-    slide.addText(s.title, { x: 0.7, y: 0.4, w: 12, h: 1, fontSize: 32, bold: true, color: INK, fontFace: "Georgia" });
-    slide.addText(
-      s.bullets.map((b) => ({ text: b, options: { bullet: true, paraSpaceAfter: 10 } })),
-      { x: 0.7, y: 1.6, w: 11.8, h: 5.3, fontSize: 20, color: "333A4A", valign: "top" },
-    );
-    if (s.notes) slide.addNotes(s.notes);
-  }
+    for (const e of slideElements(page, index, pages.length, theme)) {
+      const box = { x: e.x * scale, y: e.y * scale, w: e.w * scale, h: e.h * scale };
+      if (e.kind === "rect") slide.addShape("rect", { ...box, fill: { color: e.color }, line: { color: e.color, transparency: 100 } });
+      else slide.addText(e.text, { ...box, fontSize: e.size * 0.6, color: e.color, bold: e.bold, fontFace: e.display ? "Georgia" : "Aptos", margin: 0, valign: "top", breakLine: false, fit: "shrink" });
+    }
+    if (page.notes) slide.addNotes(page.notes);
+  });
+  return pptx;
+}
 
-  const name = deck.title.replace(/[^\w\s-]/g, "").trim().slice(0, 60) || "presentation";
-  await pptx.writeFile({ fileName: `${name}.pptx` });
+export async function downloadDeck(deck: Deck, theme: ThemeName = "studio") {
+  const pptx = await buildDeck(deck, theme);
+  await pptx.writeFile({ fileName: `${safeFilename(deck.title, "presentation")}.pptx` });
+}
+
+export async function downloadDeckPdf(deck: Deck, theme: ThemeName = "studio") {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [1600, 900], hotfixes: ["px_scaling"] });
+  const pages = deckPages(deck);
+  for (const [index, page] of pages.entries()) {
+    if (index) pdf.addPage([1600, 900], "landscape");
+    pdf.addImage(await renderSlide(page, index, pages.length, theme), "PNG", 0, 0, 1600, 900);
+  }
+  saveBlob(pdf.output("blob"), `${safeFilename(deck.title, "presentation")}.pdf`);
 }

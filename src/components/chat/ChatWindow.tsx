@@ -11,7 +11,7 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
+import { Message, MessageAction, MessageActions, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputButton,
@@ -28,6 +28,7 @@ import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@/componen
 import { supabase } from "@/integrations/supabase/client";
 import type { Deck } from "@/lib/pptx";
 import { PresentationCard } from "./PresentationCard";
+import { AnswerDownloads } from "./AnswerDownloads";
 
 const STARTERS = [
   "Write a 600-word persuasive essay on whether homework should be banned (Year 9).",
@@ -102,7 +103,9 @@ export function ChatWindow({
     const c = document.createElement("canvas");
     c.width = v.videoWidth * scale;
     c.height = v.videoHeight * scale;
-    c.getContext("2d")!.drawImage(v, 0, 0, c.width, c.height);
+    const context = c.getContext("2d");
+    if (!context) return null;
+    context.drawImage(v, 0, 0, c.width, c.height);
     return { type: "file", mediaType: "image/jpeg", filename: "screen.jpg", url: c.toDataURL("image/jpeg", 0.8) };
   }
 
@@ -291,7 +294,7 @@ function ChatMessage({
                 <PresentationCard
                   key={key}
                   deck={(part.input ?? {}) as Partial<Deck>}
-                  ready={part.state === "output-available" || part.state === "input-available"}
+                   ready={part.state === "output-available"}
                 />
               );
             default:
@@ -326,26 +329,23 @@ function ChatMessage({
           </div>
         )}
         {message.role === "assistant" && !streaming && text && (
-          <div className="mt-1 flex items-center gap-1">
-            <button
-              type="button"
+          <MessageActions className="mt-1">
+            <MessageAction
               onClick={copy}
-              aria-label="Copy reply"
-              className="rounded-md p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              tooltip="Copy reply"
             >
               {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
-            </button>
+            </MessageAction>
+            <AnswerDownloads text={text} />
             {canRegenerate && (
-              <button
-                type="button"
+              <MessageAction
                 onClick={onRegenerate}
-                aria-label="Regenerate reply"
-                className="rounded-md p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                tooltip="Regenerate reply"
               >
                 <RotateCcw className="size-3.5" />
-              </button>
+              </MessageAction>
             )}
-          </div>
+          </MessageActions>
         )}
       </MessageContent>
     </Message>
