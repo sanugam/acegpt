@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Presentation } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { deckPages, renderSlide, THEMES, type ThemeName } from "@/lib/presentation-design";
 import { downloadDeck, downloadDeckPdf, type Deck } from "@/lib/pptx";
 
@@ -16,8 +21,16 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
   useEffect(() => {
     let cancelled = false;
     setImage("");
-    renderSlide(pages[active], active, pages.length, theme).then((url) => { if (!cancelled) setImage(url); }).catch((error) => { if (!cancelled) toast.error(error.message); });
-    return () => { cancelled = true; };
+    renderSlide(pages[active], active, pages.length, theme)
+      .then((url) => {
+        if (!cancelled) setImage(url);
+      })
+      .catch((error) => {
+        if (!cancelled) toast.error(error.message);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [pages, active, theme]);
 
   async function download(format: "pptx" | "pdf") {
@@ -26,8 +39,11 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
     try {
       const complete = { title: deck.title, subtitle: deck.subtitle ?? "", slides: deck.slides };
       await (format === "pptx" ? downloadDeck(complete, theme) : downloadDeckPdf(complete, theme));
-    } catch (error) { toast.error("Couldn't save presentation: " + (error as Error).message); }
-    finally { setBusy(false); }
+    } catch (error) {
+      toast.error("Couldn't save presentation: " + (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -35,26 +51,82 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Presentation className="size-5 shrink-0 text-primary" />
-          <div className="min-w-0"><p className="truncate font-semibold">{deck.title ?? "Building presentation…"}</p><p className="text-xs text-muted-foreground">{pages.length} slides</p></div>
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{deck.title ?? "Building presentation…"}</p>
+            <p className="text-xs text-muted-foreground">{pages.length} slides</p>
+          </div>
         </div>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button size="sm" disabled={!ready || busy}><Download />{busy ? "Saving…" : "Download"}</Button></DropdownMenuTrigger>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" disabled={!ready || busy}>
+              <Download />
+              {busy ? "Saving…" : "Download"}
+            </Button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => void download("pptx")}>PowerPoint (.pptx)</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void download("pptx")}>
+              PowerPoint (.pptx)
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void download("pdf")}>PDF (.pdf)</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="flex flex-wrap items-center gap-1 px-3 py-2" role="group" aria-label="Presentation theme">
-        {(Object.keys(THEMES) as ThemeName[]).map((name) => <Button key={name} size="sm" variant={theme === name ? "secondary" : "ghost"} aria-pressed={theme === name} onClick={() => setTheme(name)}><span className={`deck-swatch deck-swatch-${name}`} />{THEMES[name].label}</Button>)}
+      <div
+        className="flex flex-wrap items-center gap-1 px-3 py-2"
+        role="group"
+        aria-label="Presentation theme"
+      >
+        {(Object.keys(THEMES) as ThemeName[]).map((name) => (
+          <Button
+            key={name}
+            size="sm"
+            variant={theme === name ? "secondary" : "ghost"}
+            aria-pressed={theme === name}
+            onClick={() => setTheme(name)}
+          >
+            <span className={`deck-swatch deck-swatch-${name}`} />
+            {THEMES[name].label}
+          </Button>
+        ))}
       </div>
-      <div className="aspect-video bg-secondary" aria-busy={!image}>{image && <img src={image} alt={`Slide ${active + 1}: ${pages[active].title}`} className="h-full w-full object-contain" />}</div>
+      <div className="aspect-video bg-secondary" aria-busy={!image}>
+        {image && (
+          <img
+            src={image}
+            alt={`Slide ${active + 1}: ${pages[active].title}`}
+            className="h-full w-full object-contain"
+          />
+        )}
+      </div>
       <div className="flex items-center justify-between px-3 py-2">
-        <Button size="icon-sm" variant="ghost" aria-label="Previous slide" disabled={active === 0} onClick={() => setIndex(active - 1)}><ChevronLeft /></Button>
-        <span className="text-xs text-muted-foreground">{active + 1} / {pages.length}</span>
-        <Button size="icon-sm" variant="ghost" aria-label="Next slide" disabled={active === pages.length - 1} onClick={() => setIndex(active + 1)}><ChevronRight /></Button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label="Previous slide"
+          disabled={active === 0}
+          onClick={() => setIndex(active - 1)}
+        >
+          <ChevronLeft />
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          {active + 1} / {pages.length}
+        </span>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label="Next slide"
+          disabled={active === pages.length - 1}
+          onClick={() => setIndex(active + 1)}
+        >
+          <ChevronRight />
+        </Button>
       </div>
-      {pages[active].notes && <details className="border-t px-4 py-3 text-sm"><summary className="cursor-pointer text-muted-foreground">Speaker notes</summary><p className="mt-2 whitespace-pre-wrap">{pages[active].notes}</p></details>}
+      {pages[active].notes && (
+        <details className="border-t px-4 py-3 text-sm">
+          <summary className="cursor-pointer text-muted-foreground">Speaker notes</summary>
+          <p className="mt-2 whitespace-pre-wrap">{pages[active].notes}</p>
+        </details>
+      )}
     </div>
   );
 }

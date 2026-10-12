@@ -1,4 +1,10 @@
-import { deckPages, renderSlide, slideElements, type Deck, type ThemeName } from "./presentation-design";
+import {
+  deckPages,
+  renderSlide,
+  slideElements,
+  type Deck,
+  type ThemeName,
+} from "./presentation-design";
 import { safeFilename, saveBlob } from "./downloads";
 export type { Deck } from "./presentation-design";
 
@@ -15,8 +21,24 @@ export async function buildDeck(deck: Deck, theme: ThemeName = "studio") {
     const slide = pptx.addSlide();
     for (const e of slideElements(page, index, pages.length, theme)) {
       const box = { x: e.x * scale, y: e.y * scale, w: e.w * scale, h: e.h * scale };
-      if (e.kind === "rect") slide.addShape("rect", { ...box, fill: { color: e.color }, line: { color: e.color, transparency: 100 } });
-      else slide.addText(e.text, { ...box, fontSize: e.size * 0.6, color: e.color, bold: e.bold, fontFace: e.display ? "Georgia" : "Aptos", margin: 0, valign: "top", breakLine: false, fit: "shrink" });
+      if (e.kind === "rect")
+        slide.addShape("rect", {
+          ...box,
+          fill: { color: e.color },
+          line: { color: e.color, transparency: 100 },
+        });
+      else
+        slide.addText(e.text, {
+          ...box,
+          fontSize: e.size * 0.6,
+          color: e.color,
+          bold: e.bold,
+          fontFace: e.display ? "Georgia" : "Aptos",
+          margin: 0,
+          valign: "top",
+          breakLine: false,
+          fit: "shrink",
+        });
     }
     if (page.notes) slide.addNotes(page.notes);
   });
@@ -30,7 +52,12 @@ export async function downloadDeck(deck: Deck, theme: ThemeName = "studio") {
 
 export async function downloadDeckPdf(deck: Deck, theme: ThemeName = "studio") {
   const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [1600, 900], hotfixes: ["px_scaling"] });
+  const pdf = new jsPDF({
+    orientation: "landscape",
+    unit: "px",
+    format: [1600, 900],
+    hotfixes: ["px_scaling"],
+  });
   const pages = deckPages(deck);
   for (const [index, page] of pages.entries()) {
     if (index) pdf.addPage([1600, 900], "landscape");
