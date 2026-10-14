@@ -126,6 +126,30 @@ export function ChatWindow({
     };
   }
 
+  // Live watching: keep recent snapshots so Ace sees what changed on screen
+  const recentFrames = useRef<FileUIPart[]>([]);
+  useEffect(() => {
+    if (!stream) {
+      recentFrames.current = [];
+      return;
+    }
+    const id = setInterval(() => {
+      const f = captureFrame();
+      if (f) recentFrames.current = [...recentFrames.current, f].slice(-2);
+    }, 8000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stream]);
+
+  function screenParts(): FileUIPart[] {
+    const now = captureFrame();
+    const parts = [...recentFrames.current, ...(now ? [now] : [])];
+    return parts.map((p, i) => ({
+      ...p,
+      filename: i === parts.length - 1 ? "screen-now.jpg" : `screen-earlier-${i + 1}.jpg`,
+    }));
+  }
+
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
@@ -133,12 +157,19 @@ export function ChatWindow({
   function submit(msg: PromptInputMessage) {
     const text = msg.text.trim();
     const files = [...msg.files];
-    const frame = stream ? captureFrame() : null;
-    if (frame) files.push(frame);
+    if (stream) files.push(...screenParts());
     if (!text && files.length === 0) return;
-    sendMessage({ text: text || "Complete the task shown.", files });
+    sendMessage({ text: text || "Complete the task shown on my screen.", files });
     setInput("");
     textareaRef.current?.focus();
+  }
+
+  function doMyScreen() {
+    if (!stream || busy) return;
+    sendMessage({
+      text: "Look at my screen (the last image is what it shows right now) and complete the task fully. Lay out the finished answers so I can drop them straight in.",
+      files: screenParts(),
+    });
   }
 
   const empty = messages.length === 0;
@@ -200,12 +231,25 @@ export function ChatWindow({
               autoPlay
               muted
               playsInline
-              className="h-16 w-28 rounded-md bg-background object-cover"
+              className="h-20 w-36 rounded-md bg-background object-cover"
             />
             <p className="flex-1 text-sm">
-              <span className="font-semibold text-primary">Sharing your screen.</span>{" "}
-              <span className="text-muted-foreground">A snapshot goes with each message.</span>
+              <span className="flex items-center gap-1.5 font-semibold text-primary">
+                <span className="size-2 animate-pulse rounded-full bg-primary" />
+                Ace is watching your screen
+              </span>
+              <span className="text-muted-foreground">
+                Just type "do this", or tap the button.
+              </span>
             </p>
+            <button
+              type="button"
+              onClick={doMyScreen}
+              disabled={busy}
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+            >
+              Do what's on my screen
+            </button>
           </div>
         )}
         {!stream && <video ref={videoRef} className="hidden" />}
