@@ -142,7 +142,11 @@ export function presentationResponse({
         const schema =
           requestedCount >= 1 && requestedCount <= 30
             ? presentationSchema.extend({
-                slides: z.array(presentationSchema.shape.slides.element).length(requestedCount - 1),
+                slides: z
+                  .array(presentationSchema.shape.slides.element)
+                  .describe(
+                    `Exactly ${requestedCount - 1} CONTENT slides. The separate title is rendered as slide 1 automatically. Do not put a title slide in this array.`,
+                  ),
               })
             : presentationSchema;
         const result = await generateText({
@@ -158,13 +162,37 @@ export function presentationResponse({
           messages: modelMessages,
           instructions:
             instructions +
-            "\nFor this request, return ONLY the presentation JSON object specified by the response schema. Do not call functions or write an introduction. Include exactly the requested number of slides (one title slide is added automatically). When restyling, preserve the existing deck's title and content unless the user asks to change them. Keep notes to one short sentence and each slide to 2-3 concise bullets. The COVER SVG must be compact, about 1000-1800 characters: use 10-20 simple shapes with single-quoted attributes and reusable defs/use shapes; never hundreds of individual leaves or complex path points. Set every content slide artwork to an empty string unless a small specific diagram is essential. The app reuses cover illustration as a decorative band on content slides. Match the reference composition, not just its colours: centred headings with edge illustrations should use coverLayout centered, without a white side panel. Match the reference style and user-requested design.",
+            "\nFor this request, return ONLY the presentation JSON object specified by the response schema. Do not call functions or write an introduction. Include exactly the requested number of slides (one title slide is added automatically). When restyling, preserve the existing deck's title and content unless the user asks to change them. Keep notes to one short sentence and each slide to 2-3 concise bullets. The COVER SVG must be compact, about 1000-1800 characters: use 10-20 simple shapes with single-quoted attributes and reusable defs/use shapes; never hundreds of individual leaves or complex path points. Set every content slide artwork to an empty string unless a small specific diagram is essential. The app reuses cover illustration as a decorative band on content slides. Match the reference composition, not just its colours: centred headings with edge illustrations should use coverLayout centered, without a white side panel. Match the reference style and user-requested design." +
+            (requestedCount >= 1 && requestedCount <= 30
+              ? ` CRITICAL: This deck has ${requestedCount} total pages. Return exactly ${requestedCount - 1} content slide objects in slides; the title page is separate.`
+              : ""),
           output: Output.object({ schema }),
           maxOutputTokens: 8192,
           maxRetries: 1,
           abortSignal,
         });
         const deck = result.output;
+        if (requestedCount >= 1 && requestedCount <= 30) {
+          const target = requestedCount - 1;
+          const sameTitle = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (
+            deck.slides.length > target &&
+            sameTitle(deck.slides[0]?.title ?? "") === sameTitle(deck.title)
+          )
+            deck.slides.shift();
+          if (deck.slides.length > target) {
+            // Preserve the conclusion; retain overflow detail in speaker notes.
+            const ending = deck.slides.at(-1)!;
+            const overflow = deck.slides.slice(Math.max(0, target - 1), -1);
+            ending.notes = [
+              ...overflow.map(
+                (slide) => `${slide.title}: ${slide.bullets.join("; ")}. ${slide.notes}`,
+              ),
+              ending.notes,
+            ].join("\n");
+            deck.slides = target ? [...deck.slides.slice(0, target - 1), ending] : [];
+          }
+        }
         // A valid JSON response can still contain malformed SVG or a copied
         // history placeholder. Repair only the illustration, keeping the deck.
         if (!validPresentationArtwork(deck.design.artwork)) {
