@@ -102,7 +102,7 @@ export function presentationResponse({
           messages: modelMessages,
           instructions:
             instructions +
-            "\nFor this request, return ONLY the presentation JSON object specified by the response schema. Do not call functions or write an introduction. Include exactly the requested number of slides (one title slide is added automatically). Keep notes to one short sentence and each slide to 2-3 concise bullets. The COVER SVG must be compact, about 1000-1800 characters: use 10-20 simple shapes with single-quoted attributes and reusable defs/use shapes; never hundreds of individual leaves or complex path points. Set every content slide artwork to an empty string unless a small specific diagram is essential. The app reuses cover illustration as a decorative band on content slides. Match the reference style and user-requested design.",
+            "\nFor this request, return ONLY the presentation JSON object specified by the response schema. Do not call functions or write an introduction. Include exactly the requested number of slides (one title slide is added automatically). When restyling, preserve the existing deck's title and content unless the user asks to change them. Keep notes to one short sentence and each slide to 2-3 concise bullets. The COVER SVG must be compact, about 1000-1800 characters: use 10-20 simple shapes with single-quoted attributes and reusable defs/use shapes; never hundreds of individual leaves or complex path points. Set every content slide artwork to an empty string unless a small specific diagram is essential. The app reuses cover illustration as a decorative band on content slides. Match the reference composition, not just its colours: centred headings with edge illustrations should use coverLayout centered, without a white side panel. Match the reference style and user-requested design.",
           output: Output.object({ schema }),
           maxOutputTokens: 8192,
           maxRetries: 1,
@@ -148,7 +148,7 @@ export const presentationSchema = z.object({
     accent: z.string().describe("Accent colour, 6 hex digits"),
     surface: z.string().describe("Content card colour, 6 hex digits"),
     font: z.enum(["sans", "serif", "rounded"]),
-    coverLayout: z.enum(["centered", "split", "editorial"]),
+    coverLayout: z.enum(["centered", "split", "editorial"]).describe("Match reference composition. Use centered for centred headings and artwork at the edges; split for an explicitly requested side panel; editorial for magazine-style typography."),
     artwork: z
       .string()
       .max(3500)

@@ -522,19 +522,29 @@ function ChatMessage({
             )}
           </div>
         )}
-        {message.role === "assistant" && !streaming && text && (
-          <MessageActions className="mt-1">
-            <MessageAction onClick={copy} tooltip="Copy reply">
-              {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
-            </MessageAction>
-            <AnswerDownloads text={text} />
-            {canRegenerate && (
-              <MessageAction onClick={onRegenerate} tooltip="Regenerate reply">
-                <RotateCcw className="size-3.5" />
-              </MessageAction>
-            )}
-          </MessageActions>
-        )}
+        {message.role === "assistant" &&
+          !streaming &&
+          (text || message.parts.some((part) => part.type === "tool-create_presentation")) && (
+            <MessageActions className="mt-1">
+              {text && (
+                <>
+                  <MessageAction onClick={copy} tooltip="Copy reply">
+                    {copied ? (
+                      <Check className="size-3.5 text-primary" />
+                    ) : (
+                      <Copy className="size-3.5" />
+                    )}
+                  </MessageAction>
+                  <AnswerDownloads text={text} />
+                </>
+              )}
+              {canRegenerate && (
+                <MessageAction onClick={onRegenerate} tooltip="Regenerate reply">
+                  <RotateCcw className="size-3.5" />
+                </MessageAction>
+              )}
+            </MessageActions>
+          )}
       </MessageContent>
     </Message>
   );
