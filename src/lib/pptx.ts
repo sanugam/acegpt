@@ -61,6 +61,7 @@ export async function downloadDeck(deck: Deck, theme: ThemeName = "studio") {
 export async function downloadDeckPdf(deck: Deck, theme: ThemeName = "studio") {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({
+    compress: true,
     orientation: "landscape",
     unit: "px",
     format: [1600, 900],
