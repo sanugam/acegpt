@@ -130,3 +130,40 @@ it("repairs a missing illustration without changing the generated slide content"
   expect(body).toContain('"type":"tool-output-available"');
   expect(saveReply).toHaveBeenCalledTimes(1);
 });
+
+it("reads a reference image before asking the text model for structured slides", async () => {
+  generate.mockReset();
+  const imageRequest: UIMessage = {
+    ...request,
+    parts: [
+      ...request.parts,
+      { type: "file", mediaType: "image/png", url: "data:image/png;base64,aGVsbG8=" },
+    ],
+  };
+  generate.mockResolvedValueOnce({
+    text: "Mint background, green trees at the edges, centered headings.",
+  });
+  generate.mockResolvedValueOnce({
+    output: {
+      title: "Environment",
+      subtitle: "Protect nature",
+      design: { artwork: "<svg><circle r='50'/></svg>" },
+      slides: [],
+    },
+  });
+  const response = presentationResponse({
+    apiKey: "test-server-key",
+    preparedMessages: [imageRequest],
+    originalMessages: [imageRequest],
+    instructions: "Make slides",
+    abortSignal: new AbortController().signal,
+    saveReply: async () => {},
+    onError: () => "Failure",
+  });
+  expect(await response.text()).toContain('"type":"tool-output-available"');
+  expect(generate.mock.calls[0]?.[0].model.modelId).toBe("qwen/qwen3.8-27b");
+  expect(generate.mock.calls[1]?.[0].model.modelId).toBe("openai/gpt-oss-120b");
+  const documentMessages = JSON.stringify(generate.mock.calls[1]?.[0].messages);
+  expect(documentMessages).toContain("Mint background");
+  expect(documentMessages).not.toContain('"type":"image"');
+});
