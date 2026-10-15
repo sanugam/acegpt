@@ -100,3 +100,33 @@ it("rejects missing illustrations and malformed XML instead of showing a blank c
   expect(validPresentationArtwork("<svg><path d='M0 0'/></g></svg>")).toBe(false);
   expect(validPresentationArtwork("<svg><circle r='50'/></svg>")).toBe(true);
 });
+
+it("repairs a missing illustration without changing the generated slide content", async () => {
+  generate.mockReset();
+  const artwork =
+    "<svg viewBox='0 0 1600 900'><circle cx='1350' cy='700' r='120' fill='#AA77FF'/></svg>";
+  generate.mockResolvedValueOnce({
+    output: {
+      title: "Robotics",
+      subtitle: "Keep this",
+      design: { name: "Circuits", artwork: "[omitted]" },
+      slides: [],
+    },
+  });
+  generate.mockResolvedValueOnce({ output: { artwork } });
+  const saveReply = vi.fn(async (_message: UIMessage) => {});
+  const body = await presentationResponse({
+    apiKey: "test-server-key",
+    preparedMessages: [request],
+    originalMessages: [request],
+    instructions: "Make slides",
+    abortSignal: new AbortController().signal,
+    saveReply,
+    onError: () => "Failure",
+  }).text();
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(body).toContain('"subtitle":"Keep this"');
+  expect(body).toContain(artwork);
+  expect(body).toContain('"type":"tool-output-available"');
+  expect(saveReply).toHaveBeenCalledTimes(1);
+});
