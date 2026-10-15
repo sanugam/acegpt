@@ -4,6 +4,7 @@ import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage }
 import { z } from "zod";
 
 import { groqChatConfig, groqInput } from "@/lib/ai/groq.server";
+import { recentImageContext } from "@/lib/ai/image-context";
 import type { Database } from "@/integrations/supabase/types";
 import {
   createLovableAiGatewayRunIdFetch,
@@ -112,9 +113,11 @@ export async function handleChat(request: Request) {
   const { messages, threadId } = body;
   if (!Array.isArray(messages) || !threadId) return json(400, { error: "Invalid request." });
 
-  const preparedMessages = prepareForModel(messages);
+  let preparedMessages = prepareForModel(messages);
   if (groqKey) {
     try {
+      groqInput(preparedMessages.slice(-1));
+      preparedMessages = recentImageContext(preparedMessages);
       groqInput(preparedMessages);
     } catch (error) {
       return json(400, { error: (error as Error).message });

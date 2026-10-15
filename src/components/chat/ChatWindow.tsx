@@ -43,6 +43,8 @@ import {
 import type { Deck } from "@/lib/pptx";
 import { PresentationCard } from "./PresentationCard";
 import { AnswerDownloads } from "./AnswerDownloads";
+import { recentImageContext, IMAGES_PER_REPLY } from "@/lib/ai/image-context";
+import { prepareAttachment } from "@/lib/chat-attachments";
 
 const STARTERS = [
   "Write a 600-word persuasive essay on whether homework should be banned (Year 9).",
@@ -63,18 +65,38 @@ export function ChatWindow({
   const navigate = useNavigate();
   const savedThreadId = useRef<string | null>(isGuestThread(threadId) ? null : threadId);
   const [input, setInput] = useState("");
+  const [preparing, setPreparing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
+        fetch: async (url, init) => {
+          const response = await fetch(url, init);
+          if (response.ok) return response;
+          const text = await response.text();
+          let message = text;
+          try {
+            message = JSON.parse(text).error ?? text;
+          } catch {
+            /* Plain-text server errors. */
+          }
+          if (response.status === 413)
+            message = "This message is too large. Use fewer or smaller attachments.";
+          throw new Error(message || "Ace couldn't send this message. Please retry.");
+        },
         prepareSendMessagesRequest: async ({ messages, trigger, messageId }) => {
           const session = await ensureChatSession();
           savedThreadId.current ??= await createThread();
           return {
             headers: { Authorization: `Bearer ${session.access_token}` },
-            body: { threadId: savedThreadId.current, messages, trigger, messageId },
+            body: {
+              threadId: savedThreadId.current,
+              messages: recentImageContext(messages),
+              trigger,
+              messageId,
+            },
           };
         },
       }),
@@ -99,7 +121,7 @@ export function ChatWindow({
       textareaRef.current?.focus();
     },
   });
-  const busy = status === "submitted" || status === "streaming";
+  const busy = preparing || status === "submitted" || status === "streaming";
 
   // Screen share
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -110,13 +132,22 @@ export function ChatWindow({
   useEffect(() => () => stream?.getTracks().forEach((t) => t.stop()), [stream]);
 
   async function startShare() {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      toast.error(
+        "Screen sharing is available in supported desktop browsers. You can attach a screenshot instead.",
+      );
+      return;
+    }
     try {
       const s = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
       s.getVideoTracks()[0]?.addEventListener("ended", () => setStream(null));
       setStream(s);
-      toast.success("Screen shared. Ace will see your screen with every message.");
-    } catch {
-      /* user cancelled */
+      toast.success("Screen shared. A screenshot is sent when you send a message.");
+    } catch (error) {
+      if ((error as Error).name !== "AbortError")
+        toast.error(
+          "Screen sharing didn't start. Choose a screen or tab and allow sharing, or attach a screenshot.",
+        );
     }
   }
   function stopShare() {
@@ -141,51 +172,50 @@ export function ChatWindow({
     };
   }
 
-  // Live watching: keep recent snapshots so Ace sees what changed on screen
-  const recentFrames = useRef<FileUIPart[]>([]);
-  useEffect(() => {
-    if (!stream) {
-      recentFrames.current = [];
-      return;
-    }
-    const id = setInterval(() => {
-      const f = captureFrame();
-      if (f) recentFrames.current = [...recentFrames.current, f].slice(-2);
-    }, 8000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stream]);
-
   function screenParts(): FileUIPart[] {
     const now = captureFrame();
-    const parts = [...recentFrames.current, ...(now ? [now] : [])];
-    return parts.map((p, i) => ({
-      ...p,
-      filename: i === parts.length - 1 ? "screen-now.jpg" : `screen-earlier-${i + 1}.jpg`,
-    }));
+    if (!now) throw new Error("Your shared screen is still loading. Wait a moment and try again.");
+    return [{ ...now, filename: "screen-now.jpg" }];
   }
 
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
 
-  function submit(msg: PromptInputMessage) {
+  async function submit(msg: PromptInputMessage) {
+    if (busy || !session) return;
     const text = msg.text.trim();
     const files = [...msg.files];
-    if (stream) files.push(...screenParts());
-    if (!text && files.length === 0) return;
-    if (!session) return;
-    sendMessage({ text: text || "Complete the task shown on my screen.", files });
-    setInput("");
-    textareaRef.current?.focus();
+    try {
+      if (stream) files.push(...screenParts());
+      if (!text && files.length === 0) return;
+      if (files.filter((file) => file.mediaType.startsWith("image/")).length > IMAGES_PER_REPLY)
+        throw new Error(
+          "Use up to three pictures per message (including the shared screen). Send more pictures in your next message.",
+        );
+      setPreparing(true);
+      const attachments = await Promise.all(files.map(prepareAttachment));
+      setInput("");
+      setPreparing(false);
+      await sendMessage({
+        text: text || "Read the attached files and help me with them.",
+        files: attachments,
+      });
+      textareaRef.current?.focus();
+    } catch (error) {
+      toast.error((error as Error).message);
+      throw error;
+    } finally {
+      setPreparing(false);
+    }
   }
 
   function doMyScreen() {
     if (!stream || busy || !session) return;
-    sendMessage({
+    void submit({
       text: "Look at my screen (the last image is what it shows right now) and complete the task fully. Lay out the finished answers so I can drop them straight in.",
-      files: screenParts(),
-    });
+      files: [],
+    }).catch(() => {});
   }
 
   const empty = messages.length === 0;
@@ -208,7 +238,7 @@ export function ChatWindow({
                   <button
                     key={s}
                     type="button"
-                    disabled={!session}
+                    disabled={!session || busy}
                     onClick={() => sendMessage({ text: s })}
                     className="rounded-xl border bg-card/70 p-4 text-left text-sm transition hover:border-primary/60 hover:bg-card"
                   >
@@ -253,9 +283,9 @@ export function ChatWindow({
             <p className="flex-1 text-sm">
               <span className="flex items-center gap-1.5 font-semibold text-primary">
                 <span className="size-2 animate-pulse rounded-full bg-primary" />
-                Ace is watching your screen
+                Screen sharing is on
               </span>
-              <span className="text-muted-foreground">Just type "do this", or tap the button.</span>
+              <span className="text-muted-foreground">A screenshot is sent with each message.</span>
             </p>
             <button
               type="button"
@@ -292,6 +322,9 @@ export function ChatWindow({
           onSubmit={submit}
           multiple
           globalDrop
+          maxFiles={6}
+          maxFileSize={5_000_000}
+          onError={(error) => toast.error(error.message)}
           className="rounded-2xl bg-card shadow-glow"
         >
           <AttachmentChips />
@@ -309,18 +342,38 @@ export function ChatWindow({
                 onClick={stream ? stopShare : startShare}
               >
                 {stream ? <MonitorX className="size-4" /> : <MonitorUp className="size-4" />}
-                <span className="hidden sm:inline">{stream ? "Stop" : "Screen"}</span>
+                <span className="hidden sm:inline">{stream ? "Stop sharing" : "Screen"}</span>
               </PromptInputButton>
             </PromptInputTools>
-            <PromptInputSubmit
+            <ChatSubmit
               status={status}
               onStop={stop}
-              disabled={!session || (!busy && !input.trim() && !stream)}
+              disabled={!session || preparing}
+              hasContent={Boolean(input.trim() || stream)}
             />
           </PromptInputFooter>
         </PromptInput>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Up to 3 pictures per message. Each reply sees the latest 3 pictures; older pictures stay
+          in your chat. Files up to 5 MB.
+        </p>
       </div>
     </main>
+  );
+}
+
+function ChatSubmit({
+  hasContent,
+  disabled,
+  ...props
+}: React.ComponentProps<typeof PromptInputSubmit> & { hasContent: boolean }) {
+  const attachments = usePromptInputAttachments();
+  const generating = props.status === "submitted" || props.status === "streaming";
+  return (
+    <PromptInputSubmit
+      {...props}
+      disabled={disabled || (!generating && !hasContent && !attachments.files.length)}
+    />
   );
 }
 
@@ -328,7 +381,8 @@ function AttachButton() {
   const a = usePromptInputAttachments();
   return (
     <PromptInputButton
-      tooltip="Attach files (images, PDFs, CSV, docs)"
+      tooltip="Attach pictures, PDF, Word (.docx), text, CSV, or code (up to 5 MB)"
+      aria-label="Attach files"
       onClick={() => a.openFileDialog()}
     >
       <Paperclip className="size-4" />

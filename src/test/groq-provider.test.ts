@@ -6,6 +6,7 @@ import {
   groqChatConfig,
   groqInput,
 } from "@/lib/ai/groq.server";
+import { recentImageContext } from "@/lib/ai/image-context";
 
 const textMessage: UIMessage = {
   id: "user-1",
@@ -52,12 +53,12 @@ describe("Groq integration", () => {
     expect(body.max_tokens).toBe(2048);
   });
 
-  it("routes screenshots to vision without sending an incompatible search tool", () => {
+  it("routes screenshots to vision with a callable web search instead of an incompatible native search tool", () => {
     const messages: UIMessage[] = [{ ...textMessage, parts: [image] }];
     const config = groqChatConfig("test-server-key", messages);
     expect(config.model.modelId).toBe(GROQ_VISION_MODEL);
-    expect(config.tools).toEqual({});
-    expect(config.instructionSuffix).toContain("without live web search");
+    expect(config.tools.web_search).toHaveProperty("execute");
+    expect(config.instructionSuffix).toContain("web_search");
   });
 
   it("rejects unsupported documents and excess images rather than dropping attachments", () => {
@@ -65,7 +66,29 @@ describe("Groq integration", () => {
       groqInput([{ ...textMessage, parts: [{ ...image, mediaType: "application/pdf" }] }]),
     ).toThrow("paste the document text");
     expect(() => groqInput([{ ...textMessage, parts: [image, image, image, image] }])).toThrow(
-      "three images",
+      "three pictures",
     );
+  });
+
+  it("keeps the latest three pictures across many turns without changing the displayed history", () => {
+    const history: UIMessage[] = Array.from({ length: 7 }, (_, index) => ({
+      id: `image-${index}`,
+      role: "user",
+      parts: [{ ...image, filename: `picture-${index}.png` }],
+    }));
+    const context = recentImageContext(history);
+    expect(
+      context
+        .flatMap((m) => m.parts)
+        .filter((p) => p.type === "file")
+        .map((p) => p.filename),
+    ).toEqual(["picture-4.png", "picture-5.png", "picture-6.png"]);
+    expect(context[0]?.parts[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("reattach"),
+    });
+    expect(history.every((m) => m.parts[0]?.type === "file")).toBe(true);
+    expect(groqInput(context).vision).toBe(true);
+    expect(recentImageContext(context)).toEqual(context);
   });
 });
