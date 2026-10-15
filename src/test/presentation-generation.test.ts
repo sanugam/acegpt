@@ -72,6 +72,20 @@ it("builds a saved downloadable card from structured output without native funct
           layout: "split",
           artwork: "",
         },
+        {
+          title: "Actuators",
+          bullets: ["Motors move robots"],
+          notes: "Keep the detail",
+          layout: "cards",
+          artwork: "",
+        },
+        {
+          title: "The future",
+          bullets: ["Build responsibly"],
+          notes: "Conclusion",
+          layout: "statement",
+          artwork: "",
+        },
       ],
     },
   });
@@ -89,6 +103,9 @@ it("builds a saved downloadable card from structured output without native funct
   expect(body).toContain('"toolName":"create_presentation"');
   expect(body).toContain('"type":"tool-output-available"');
   expect(body).toContain("Purple circuits");
+  expect(body).toContain('"slideCount":3');
+  expect(body).toContain('"title":"The future"');
+  expect(body).toContain("Actuators: Motors move robots");
   expect(saveReply).toHaveBeenCalledTimes(1);
   expect(saveReply.mock.calls[0]?.[0].id).toBeTruthy();
   expect(generate.mock.calls[0]?.[0]).toHaveProperty("output");
