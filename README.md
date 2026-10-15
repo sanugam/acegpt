@@ -38,3 +38,7 @@ Public guest access is intentionally disabled. The welcome page and chat workspa
 Add server-only `GROQ_API_KEY` to Vercel and redeploy. Groq is selected when this key is present; otherwise the existing Lovable gateway continues to work. No key is sent to the browser. Account signup and Free-plan limits are managed by Groq; adding a key does not guarantee unlimited or free usage on an already-paid Groq account.
 
 Text chat uses `openai/gpt-oss-120b`, including browser search and the presentation tool. Image conversations use the preview vision model `qwen/qwen3.8-27b` (up to three images across the conversation), without browser search. Text/code/CSV attachments are decoded as before; PDF/Word attachments must be pasted as text on this connection. The Groq path limits each response to 2,048 tokens and five tool steps to reduce free-tier usage. Model availability and free quotas can change.
+
+### Password recovery
+
+Existing Google-linked users can use **Forgot your Ace password?** to set an Ace password through a recovery email. Add the exact production redirect `https://acegpt-kappa.vercel.app/account/recovery` to the backend's authentication redirect allowlist; existing redirects and email verification remain in place. `/account/recovery` only shows the password form after a recovery session is received. Duplicate-email signup responses are deliberately ambiguous; the UI explains that existing users should recover their account instead of claiming that another account was created.

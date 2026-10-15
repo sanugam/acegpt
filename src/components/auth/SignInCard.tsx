@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function SignInCard() {
-  const [mode, setMode] = useState<"in" | "up">("in");
+  const [mode, setMode] = useState<"in" | "up" | "reset">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -17,7 +17,15 @@ export function SignInCard() {
     setError("");
     setNotice("");
     try {
-      if (mode === "in") {
+      if (mode === "reset") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/account/recovery`,
+        });
+        if (error) throw error;
+        setNotice(
+          "If this email has an Ace account, a password-reset link is on its way. Check your inbox and spam folder, then open the link to choose an Ace password.",
+        );
+      } else if (mode === "in") {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
       } else {
@@ -25,14 +33,20 @@ export function SignInCard() {
         if (error) throw error;
         if (!data.session) {
           setNotice(
-            "Check your inbox and spam folder for the confirmation email. Open its confirmation link, then return here and sign in with your email and password.",
+            "If this is a new account, check your inbox and spam folder for the confirmation email. If you already used this email with Ace or Google, use Forgot your Ace password below instead.",
           );
           setMode("in");
         }
       }
       setPassword("");
     } catch (error) {
-      setError((error as Error).message || "Could not sign in. Please try again.");
+      const authError = error as Error & { code?: string };
+      setError(
+        authError.code === "invalid_credentials" ||
+          authError.message === "Invalid login credentials"
+          ? "The email or Ace password wasn't accepted. If you previously used Google, or this email already had an account, use Forgot your Ace password below to set an Ace password."
+          : authError.message || "Could not sign in. Please try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -44,7 +58,11 @@ export function SignInCard() {
       className="w-full rounded-2xl border bg-card p-5 text-left shadow-glow"
     >
       <h2 className="font-display text-xl font-bold">
-        {mode === "in" ? "Sign in to Ace" : "Create your Ace account"}
+        {mode === "reset"
+          ? "Reset your Ace password"
+          : mode === "in"
+            ? "Sign in to Ace"
+            : "Create your Ace account"}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Sign in to send messages and save your chats. Guest access is turned off.
@@ -62,19 +80,21 @@ export function SignInCard() {
             disabled={busy}
           />
         </label>
-        <label className="block text-sm">
-          Password
-          <Input
-            className="mt-1"
-            type="password"
-            autoComplete={mode === "in" ? "current-password" : "new-password"}
-            minLength={mode === "up" ? 8 : undefined}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            disabled={busy}
-          />
-        </label>
+        {mode !== "reset" && (
+          <label className="block text-sm">
+            Password
+            <Input
+              className="mt-1"
+              type="password"
+              autoComplete={mode === "in" ? "current-password" : "new-password"}
+              minLength={mode === "up" ? 8 : undefined}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              disabled={busy}
+            />
+          </label>
+        )}
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
@@ -86,9 +106,30 @@ export function SignInCard() {
           </p>
         )}
         <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? "Please wait…" : mode === "in" ? "Sign in" : "Create account"}
+          {busy
+            ? "Please wait…"
+            : mode === "reset"
+              ? "Send password reset email"
+              : mode === "in"
+                ? "Sign in"
+                : "Create account"}
         </Button>
       </form>
+      {mode !== "reset" && (
+        <button
+          type="button"
+          className="mt-3 block text-sm underline"
+          disabled={busy}
+          onClick={() => {
+            setMode("reset");
+            setError("");
+            setNotice("");
+            setPassword("");
+          }}
+        >
+          Forgot your Ace password?
+        </button>
+      )}
       <button
         type="button"
         className="mt-3 text-sm underline"
