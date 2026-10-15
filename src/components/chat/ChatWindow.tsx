@@ -43,7 +43,8 @@ import {
 import type { Deck } from "@/lib/pptx";
 import { PresentationCard } from "./PresentationCard";
 import { AnswerDownloads } from "./AnswerDownloads";
-import { recentImageContext, IMAGES_PER_REPLY } from "@/lib/ai/image-context";
+import { IMAGES_PER_REPLY } from "@/lib/ai/image-context";
+import { packImageRequest } from "@/lib/ai/image-request";
 import { prepareAttachment } from "@/lib/chat-attachments";
 
 const STARTERS = [
@@ -93,7 +94,8 @@ export function ChatWindow({
             headers: { Authorization: `Bearer ${session.access_token}` },
             body: {
               threadId: savedThreadId.current,
-              messages: recentImageContext(messages),
+              messages: await packImageRequest(messages),
+              userMessage: messages.at(-1)?.role === "user" ? messages.at(-1) : undefined,
               trigger,
               messageId,
             },

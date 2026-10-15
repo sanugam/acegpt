@@ -104,7 +104,7 @@ export async function handleChat(request: Request) {
   const userId = claims?.claims?.sub;
   if (authError || !userId) return json(401, { error: "Please sign in." });
 
-  let body: { messages?: UIMessage[]; threadId?: string };
+  let body: { messages?: UIMessage[]; threadId?: string; userMessage?: UIMessage };
   try {
     body = await request.json();
   } catch {
@@ -132,7 +132,11 @@ export async function handleChat(request: Request) {
   if (!thread) return json(404, { error: "Chat not found." });
 
   // Save the latest user message
-  const last = messages[messages.length - 1];
+  const requestLast = messages[messages.length - 1];
+  const last =
+    body.userMessage?.role === "user" && body.userMessage.id === requestLast?.id
+      ? body.userMessage
+      : requestLast;
   if (last?.role === "user") {
     const { error } = await supabase.from("messages").upsert(
       {
@@ -227,6 +231,8 @@ export async function handleChat(request: Request) {
       if (status === 402) return "Out of AI credits. Add credits to keep going.";
       if (status === 429)
         return "The AI usage limit has been reached. Wait a little and retry, or start a shorter chat. No paid upgrade is required to retry within the free limits.";
+      if (status === 413)
+        return "This conversation is too large for the free AI request limit. Try a shorter question or start a new chat with only the files you need.";
       if (status === 401 || status === 403)
         return "The AI key was rejected. Check the server API key and model permissions.";
       return "Something went wrong generating a reply.";
