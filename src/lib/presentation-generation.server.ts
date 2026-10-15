@@ -18,11 +18,7 @@ export function validPresentationArtwork(svg: string) {
   );
 }
 
-const coverArtworkSchema = z
-  .string()
-  .min(100)
-  .max(3500)
-  .regex(/^\s*<svg\b[\s\S]*<\/svg>\s*$/);
+const coverArtworkSchema = z.string().max(3500);
 
 export function isPresentationRequest(messages: UIMessage[]) {
   const last = [...messages].reverse().find((message) => message.role === "user");
