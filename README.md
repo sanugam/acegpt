@@ -32,3 +32,9 @@ The Vercel build uses Nitro's `vercel` target. Do not rewrite all requests to `/
 Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and server-only `LOVABLE_API_KEY` in the deployment environment. Never prefix the AI key with `VITE_` or commit it. Redeploy after changing these values.
 
 For chat without a sign-in screen, enable anonymous sign-ins in the Supabase/Lovable backend authentication settings. Guest sessions get their own user ID; existing per-user database policies and server token verification continue to apply. The interface opens before a session is created. The first message creates a guest session and a real database thread, and a completed response updates the URL to that saved chat. If guest access or the AI key is missing, chat displays an actionable error instead of returning to the welcome page.
+
+### Free-tier AI connection
+
+Add server-only `GROQ_API_KEY` to Vercel and redeploy. Groq is selected when this key is present; otherwise the existing Lovable gateway continues to work. No key is sent to the browser. Account signup and Free-plan limits are managed by Groq; adding a key does not guarantee unlimited or free usage on an already-paid Groq account.
+
+Text chat uses `openai/gpt-oss-120b`, including browser search and the presentation tool. Image conversations use the preview vision model `qwen/qwen3.8-27b` (up to three images across the conversation), without browser search. Text/code/CSV attachments are decoded as before; PDF/Word attachments must be pasted as text on this connection. The Groq path limits each response to 2,048 tokens and five tool steps to reduce free-tier usage. Model availability and free quotas can change.

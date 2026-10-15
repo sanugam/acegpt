@@ -1,14 +1,9 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createClient } from "@supabase/supabase-js";
-import {
-  convertToModelMessages,
-  stepCountIs,
-  streamText,
-  tool,
-  type UIMessage,
-} from "ai";
+import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
 import { z } from "zod";
 
+import { groqChatConfig, groqInput } from "@/lib/ai/groq.server";
 import type { Database } from "@/integrations/supabase/types";
 import {
   createLovableAiGatewayRunIdFetch,
@@ -79,9 +74,15 @@ function json(status: number, body: unknown) {
 export async function handleChat(request: Request) {
   const SUPABASE_URL = process.env["SUPABASE_URL"];
   const SUPABASE_KEY = process.env["SUPABASE_PUBLISHABLE_KEY"];
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  const lovableKey = process.env["LOVABLE_API_KEY"];
+  const groqKey = process.env["GROQ_API_KEY"];
+  const apiKey = groqKey || lovableKey;
   if (!SUPABASE_URL || !SUPABASE_KEY || !apiKey) {
-    return json(503, { error: !apiKey ? "Ace is missing its server AI key. Add LOVABLE_API_KEY to this deployment and redeploy to enable replies." : "Ace is missing its database configuration. Check the deployment environment variables." });
+    return json(503, {
+      error: !apiKey
+        ? "Ace is missing its server AI key. Add GROQ_API_KEY (free-tier supported) or LOVABLE_API_KEY to this deployment and redeploy to enable replies."
+        : "Ace is missing its database configuration. Check the deployment environment variables.",
+    });
   }
 
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
@@ -110,6 +111,15 @@ export async function handleChat(request: Request) {
   }
   const { messages, threadId } = body;
   if (!Array.isArray(messages) || !threadId) return json(400, { error: "Invalid request." });
+
+  const preparedMessages = prepareForModel(messages);
+  if (groqKey) {
+    try {
+      groqInput(preparedMessages);
+    } catch (error) {
+      return json(400, { error: (error as Error).message });
+    }
+  }
 
   const { data: thread } = await supabase
     .from("threads")
@@ -141,19 +151,37 @@ export async function handleChat(request: Request) {
   const runIdFetch = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request));
   const provider = createOpenAI({
     baseURL: "https://ai.gateway.lovable.dev/v1",
-    apiKey,
-    headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+    apiKey: lovableKey ?? "",
+    headers: lovableKey
+      ? { "Lovable-API-Key": lovableKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" }
+      : {},
     fetch: runIdFetch.fetch,
   });
+  const modelConfig = groqKey
+    ? groqChatConfig(groqKey, preparedMessages)
+    : {
+        model: provider.responses(MODEL),
+        tools: { web_search: provider.tools.webSearch({}) },
+        providerOptions: {
+          openai: {
+            store: false,
+            forceReasoning: true,
+            reasoningEffort: "medium",
+            reasoningSummary: "auto",
+            include: ["reasoning.encrypted_content"],
+          },
+        },
+        instructionSuffix: "",
+      };
 
   const result = streamText({
-    model: provider.responses(MODEL),
-    instructions: INSTRUCTIONS,
-    messages: await convertToModelMessages(prepareForModel(messages)),
+    ...modelConfig,
+    instructions: INSTRUCTIONS + modelConfig.instructionSuffix,
+    messages: await convertToModelMessages(preparedMessages),
     abortSignal: request.signal,
-    stopWhen: stepCountIs(50),
+    stopWhen: stepCountIs(groqKey ? 5 : 50),
     tools: {
-      web_search: provider.tools.webSearch({}),
+      ...modelConfig.tools,
       create_presentation: tool({
         description:
           "Create a downloadable slide presentation (PowerPoint). Provide full content for every slide.",
@@ -170,15 +198,6 @@ export async function handleChat(request: Request) {
         }),
         execute: async (input) => ({ ok: true, slideCount: input.slides.length }),
       }),
-    },
-    providerOptions: {
-      openai: {
-        store: false,
-        forceReasoning: true,
-        reasoningEffort: "medium",
-        reasoningSummary: "auto",
-        include: ["reasoning.encrypted_content"],
-      },
     },
   });
 
@@ -203,7 +222,10 @@ export async function handleChat(request: Request) {
       console.error(error);
       const status = (error as { statusCode?: number })?.statusCode;
       if (status === 402) return "Out of AI credits. Add credits to keep going.";
-      if (status === 429) return "Too many requests right now. Try again in a moment.";
+      if (status === 429)
+        return "The AI usage limit has been reached. Wait a little and retry, or start a shorter chat. No paid upgrade is required to retry within the free limits.";
+      if (status === 401 || status === 403)
+        return "The AI key was rejected. Check the server API key and model permissions.";
       return "Something went wrong generating a reply.";
     },
   });
