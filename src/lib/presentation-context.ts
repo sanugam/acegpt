@@ -10,17 +10,14 @@ export function presentationContext(messages: UIMessage[]): UIMessage[] {
         return part;
       const input = part.input as Record<string, unknown>;
       const design = input["design"] as Record<string, unknown> | undefined;
+      const { artwork: _coverArtwork, ...designIdentity } = design ?? {};
       return {
         ...part,
         input: {
           ...input,
           ...(design
             ? {
-                design: {
-                  ...design,
-                  artwork:
-                    "[Previous vector artwork omitted. Recreate illustrations from the design name, colours and user's reference.]",
-                },
+                design: designIdentity,
               }
             : {}),
           ...(Array.isArray(input["slides"])

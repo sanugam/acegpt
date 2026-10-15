@@ -48,7 +48,7 @@ describe("custom presentation designs", () => {
     const context = presentationContext(history);
     const saved = (context[0]!.parts[0] as { input: typeof input }).input;
     expect(saved.design.foreground).toBe(forest.foreground);
-    expect(saved.design.artwork).not.toContain("<svg");
+    expect(saved.design).not.toHaveProperty("artwork");
     expect(saved.slides[0]).toMatchObject({
       title: "Act now",
       bullets: ["Reduce plastic"],

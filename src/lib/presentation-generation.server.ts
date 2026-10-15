@@ -8,6 +8,21 @@ import {
   type UIMessage,
 } from "ai";
 import { groqChatConfig, groqWebSearch } from "./ai/groq.server";
+import { XMLValidator } from "fast-xml-parser";
+
+export function validPresentationArtwork(svg: string) {
+  return (
+    /^\s*<svg\b[\s\S]*<\/svg>\s*$/.test(svg) &&
+    /<(?:path|rect|circle|ellipse|polygon|polyline|line|use)\b/.test(svg) &&
+    XMLValidator.validate(svg) === true
+  );
+}
+
+const coverArtworkSchema = z
+  .string()
+  .min(100)
+  .max(3500)
+  .regex(/^\s*<svg\b[\s\S]*<\/svg>\s*$/);
 
 export function isPresentationRequest(messages: UIMessage[]) {
   const last = [...messages].reverse().find((message) => message.role === "user");
@@ -109,6 +124,33 @@ export function presentationResponse({
           abortSignal,
         });
         const deck = result.output;
+        // A valid JSON response can still contain malformed SVG or a copied
+        // history placeholder. Repair only the illustration, keeping the deck.
+        if (!validPresentationArtwork(deck.design.artwork)) {
+          const repair = await generateText({
+            model: config.model,
+            providerOptions: {
+              groq: {
+                reasoningEffort: config.model.modelId === "qwen/qwen3.8-27b" ? "none" : "low",
+                reasoningFormat: "hidden",
+                structuredOutputs: true,
+                strictJsonSchema: true,
+              },
+            },
+            instructions:
+              "Return original compact valid SVG geometry in the requested JSON field. Use single-quoted XML attributes, viewBox='0 0 1600 900', explicit fill/stroke, no text, scripts, remote images, CSS or Markdown. Draw topic-specific illustrations around edges and bottom with the central area clear. Include real visible shapes. Use 10-20 shapes, not hundreds of tiny details.",
+            prompt: `Create cover artwork for ${deck.title}. Design: ${JSON.stringify({ ...deck.design, artwork: undefined })}. User request: ${requestText}. Replace this invalid illustration: ${deck.design.artwork}`,
+            output: Output.object({ schema: z.object({ artwork: coverArtworkSchema }) }),
+            maxOutputTokens: 2500,
+            maxRetries: 1,
+            abortSignal,
+          });
+          deck.design.artwork = repair.output.artwork;
+          if (!validPresentationArtwork(deck.design.artwork))
+            throw new Error(
+              "The slide illustration could not be drawn. Please retry the presentation.",
+            );
+        }
         writer.write({
           type: "tool-input-available",
           toolCallId,
@@ -153,12 +195,9 @@ export const presentationSchema = z.object({
       .describe(
         "Match reference composition. Use centered for centred headings and artwork at the edges; split for an explicitly requested side panel; editorial for magazine-style typography.",
       ),
-    artwork: z
-      .string()
-      .max(3500)
-      .describe(
-        "Original topic-specific SVG artwork, viewBox 0 0 1600 900; decorative edges and bottom, clear title area; no text/scripts/external URLs",
-      ),
+    artwork: coverArtworkSchema.describe(
+      "Original topic-specific SVG artwork, viewBox 0 0 1600 900; decorative edges and bottom, clear title area; no text/scripts/external URLs",
+    ),
   }),
   slides: z.array(
     z.object({

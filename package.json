@@ -66,6 +66,7 @@
     "date-fns": "^4.1.0",
     "docx": "^9.10.0",
     "embla-carousel-react": "^8.6.0",
+    "fast-xml-parser": "5.11.2",
     "fflate": "^0.8.3",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",
