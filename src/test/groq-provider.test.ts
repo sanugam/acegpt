@@ -5,6 +5,7 @@ import {
   GROQ_VISION_MODEL,
   groqChatConfig,
   groqInput,
+  groqWebSearch,
 } from "@/lib/ai/groq.server";
 import { recentImageContext } from "@/lib/ai/image-context";
 
@@ -20,6 +21,35 @@ const image = {
 };
 
 describe("Groq integration", () => {
+  it("accepts provider-executed search answers without requiring a client tool-call event", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(new AbortController().signal);
+    const searchFetch = vi.fn(
+      async (_url: unknown, _init: unknown) =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              { message: { content: "NASA overview: https://science.nasa.gov/solar-system/" } },
+            ],
+          }),
+          { headers: { "content-type": "application/json" } },
+        ),
+    );
+    try {
+      const result = await groqWebSearch(
+        "test-key",
+        "NASA overview",
+        undefined,
+        searchFetch as typeof fetch,
+      );
+      expect(result.text).toContain("https://science.nasa.gov/solar-system/");
+      const body = JSON.parse((searchFetch.mock.calls[0]?.[1] as RequestInit).body as string);
+      expect(body.tool_choice).toBe("required");
+      expect(body.tools).toEqual([{ type: "browser_search" }]);
+      expect(body.reasoning_effort).toBe("low");
+    } finally {
+      timeout.mockRestore();
+    }
+  });
   it("routes plain text to the reasoning model with browser search", async () => {
     const mockFetch = vi.fn(
       async (_input: unknown, _init: unknown) =>
