@@ -6,6 +6,7 @@ import {
   generateText,
   Output,
   type UIMessage,
+  type ModelMessage,
 } from "ai";
 import { groqChatConfig, groqWebSearch } from "./ai/groq.server";
 import { XMLValidator } from "fast-xml-parser";
@@ -84,7 +85,19 @@ export function presentationResponse({
             ?.parts.filter((part) => part.type === "text")
             .map((part) => part.text)
             .join(" ") ?? "";
-        let modelMessages = await convertToModelMessages(preparedMessages);
+        // This is a document response, not a continuation of old tool calls.
+        // Plain history also avoids Groq rejecting assistant/tool content arrays.
+        const modelMessages: ModelMessage[] = preparedMessages.flatMap((message) => {
+          const content = message.parts
+            .flatMap((part) => {
+              if (part.type === "text") return [part.text];
+              if (part.type === "tool-create_presentation" && part.input)
+                return [`Previous presentation: ${JSON.stringify(part.input)}`];
+              return [];
+            })
+            .join("\n");
+          return content ? [{ role: message.role, content } as ModelMessage] : [];
+        });
         if (referenceConfig.model.modelId !== config.model.modelId) {
           const references = preparedMessages
             .filter((message) => message.role === "user")
@@ -109,13 +122,6 @@ export function presentationResponse({
             maxRetries: 1,
             abortSignal,
           });
-          modelMessages = modelMessages
-            .map((message) =>
-              message.role === "user" && Array.isArray(message.content)
-                ? { ...message, content: message.content.filter((part) => part.type !== "image") }
-                : message,
-            )
-            .filter((message) => !Array.isArray(message.content) || message.content.length);
           modelMessages.push({
             role: "user",
             content: `Visual analysis of the attached references. Apply this design brief while following my latest request:\n${reference.text}`,
