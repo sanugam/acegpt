@@ -39,7 +39,12 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
     if (!ready || !deck.title || !deck.slides) return;
     setBusy(true);
     try {
-      const complete = { title: deck.title, subtitle: deck.subtitle ?? "", slides: deck.slides };
+      const complete = {
+        ...deck,
+        title: deck.title,
+        subtitle: deck.subtitle ?? "",
+        slides: deck.slides,
+      };
       await (format === "pptx" ? downloadDeck(complete, theme) : downloadDeckPdf(complete, theme));
     } catch (error) {
       toast.error("Couldn't save presentation: " + (error as Error).message);
@@ -78,18 +83,27 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
         role="group"
         aria-label="Presentation theme"
       >
-        {(Object.keys(THEMES) as ThemeName[]).map((name) => (
-          <Button
-            key={name}
-            size="sm"
-            variant={theme === name ? "secondary" : "ghost"}
-            aria-pressed={theme === name}
-            onClick={() => setTheme(name)}
-          >
-            <span className={`deck-swatch deck-swatch-${name}`} />
-            {THEMES[name].label}
-          </Button>
-        ))}
+        {deck.design ? (
+          <div className="px-2 py-1 text-sm">
+            <span className="font-semibold">{deck.design.name || "Custom design"}</span>
+            <span className="ml-2 text-muted-foreground">
+              Ask Ace to change the colours, layout, or illustrations.
+            </span>
+          </div>
+        ) : (
+          (Object.keys(THEMES) as ThemeName[]).map((name) => (
+            <Button
+              key={name}
+              size="sm"
+              variant={theme === name ? "secondary" : "ghost"}
+              aria-pressed={theme === name}
+              onClick={() => setTheme(name)}
+            >
+              <span className={`deck-swatch deck-swatch-${name}`} />
+              {THEMES[name].label}
+            </Button>
+          ))
+        )}
       </div>
       <div className="aspect-video bg-secondary" aria-busy={!image}>
         {image && (

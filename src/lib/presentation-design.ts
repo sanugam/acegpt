@@ -1,7 +1,20 @@
+import {
+  customSlideElements,
+  type PresentationDesign,
+  type SlideLayout,
+} from "./presentation-style";
+
 export type Deck = {
   title: string;
   subtitle: string;
-  slides: { title: string; bullets: string[]; notes: string }[];
+  design?: PresentationDesign;
+  slides: {
+    title: string;
+    bullets: string[];
+    notes: string;
+    layout?: SlideLayout;
+    artwork?: string;
+  }[];
 };
 export type ThemeName = "studio" | "botanical" | "pop";
 export const THEMES = {
@@ -30,9 +43,18 @@ export const THEMES = {
     muted: "795B66",
   },
 };
-export type SlidePage = { title: string; bullets: string[]; notes: string; cover?: boolean };
+export type SlidePage = {
+  title: string;
+  bullets: string[];
+  notes: string;
+  cover?: boolean;
+  design?: PresentationDesign;
+  layout?: SlideLayout;
+  artwork?: string;
+};
 export type Element =
-  | { kind: "rect"; x: number; y: number; w: number; h: number; color: string }
+  | { kind: "rect"; x: number; y: number; w: number; h: number; color: string; radius?: number }
+  | { kind: "image"; x: number; y: number; w: number; h: number; data: string }
   | {
       kind: "text";
       x: number;
@@ -44,6 +66,8 @@ export type Element =
       size: number;
       bold?: boolean;
       display?: boolean;
+      font?: string;
+      align?: "left" | "center";
     };
 
 export function deckPages(deck: Partial<Deck>): SlidePage[] {
@@ -53,6 +77,7 @@ export function deckPages(deck: Partial<Deck>): SlidePage[] {
       bullets: [deck.subtitle ?? ""],
       notes: "",
       cover: true,
+      ...(deck.design ? { design: deck.design } : {}),
     },
   ];
   for (const slide of deck.slides ?? []) {
@@ -80,6 +105,9 @@ export function deckPages(deck: Partial<Deck>): SlidePage[] {
         title: `${slide.title ?? ""}${i ? " (continued)" : ""}`,
         bullets: items,
         notes: slide.notes ?? "",
+        ...(deck.design ? { design: deck.design } : {}),
+        ...(slide.layout ? { layout: slide.layout } : {}),
+        ...(slide.artwork ? { artwork: slide.artwork } : {}),
       }),
     );
   }
@@ -92,6 +120,7 @@ export function slideElements(
   total: number,
   theme: ThemeName,
 ): Element[] {
+  if (page.design) return customSlideElements(page, index, total);
   const p = THEMES[theme];
   const elements: Element[] = [];
   const rect = (x: number, y: number, w: number, h: number, color: string) =>
@@ -175,15 +204,26 @@ export async function renderSlide(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Slide preview isn't supported in this browser.");
   for (const e of slideElements(page, index, total, theme)) {
+    if (e.kind === "image") {
+      const image = new Image();
+      image.src = e.data;
+      await image.decode();
+      ctx.drawImage(image, e.x, e.y, e.w, e.h);
+      continue;
+    }
     ctx.fillStyle = `#${e.color}`;
     if (e.kind === "rect") {
-      ctx.fillRect(e.x, e.y, e.w, e.h);
+      if (e.radius) {
+        ctx.beginPath();
+        ctx.roundRect(e.x, e.y, e.w, e.h, e.radius);
+        ctx.fill();
+      } else ctx.fillRect(e.x, e.y, e.w, e.h);
       continue;
     }
     let size = e.size;
     let lines: string[] = [];
     do {
-      ctx.font = `${e.bold ? "700" : "400"} ${size}px ${e.display ? "Fraunces, Georgia" : "Figtree, sans-serif"}`;
+      ctx.font = `${e.bold ? "700" : "400"} ${size}px ${e.font ?? (e.display ? "Fraunces, Georgia" : "Figtree, sans-serif")}`;
       lines = [];
       for (const paragraph of e.text.split("\n")) {
         let line = "";
@@ -200,7 +240,11 @@ export async function renderSlide(
       size -= 1;
     } while (size > 18);
     ctx.textBaseline = "top";
-    lines.forEach((line, i) => ctx.fillText(line, e.x, e.y + i * size * 1.22, e.w));
+    ctx.textAlign = e.align ?? "left";
+    lines.forEach((line, i) =>
+      ctx.fillText(line, e.x + (e.align === "center" ? e.w / 2 : 0), e.y + i * size * 1.22, e.w),
+    );
+    ctx.textAlign = "left";
   }
   return canvas.toDataURL("image/png");
 }

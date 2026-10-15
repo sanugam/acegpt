@@ -22,8 +22,9 @@ export async function buildDeck(deck: Deck, theme: ThemeName = "studio") {
     const slide = pptx.addSlide();
     for (const e of slideElements(page, index, pages.length, theme)) {
       const box = { x: e.x * scale, y: e.y * scale, w: e.w * scale, h: e.h * scale };
-      if (e.kind === "rect")
-        slide.addShape("rect", {
+      if (e.kind === "image") slide.addImage({ ...box, data: e.data });
+      else if (e.kind === "rect")
+        slide.addShape(e.radius ? "roundRect" : "rect", {
           ...box,
           fill: { color: e.color },
           line: { color: e.color, transparency: 100 },
@@ -34,7 +35,8 @@ export async function buildDeck(deck: Deck, theme: ThemeName = "studio") {
           fontSize: e.size * 0.6,
           color: e.color,
           bold: e.bold ?? false,
-          fontFace: e.display ? "Georgia" : "Aptos",
+          fontFace: e.font ?? (e.display ? "Georgia" : "Aptos"),
+          align: e.align ?? "left",
           margin: 0,
           valign: "top",
           breakLine: false,
