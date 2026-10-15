@@ -22,7 +22,7 @@ Core behaviour:
 - For code tasks, give complete runnable code.
 - For data (CSV/spreadsheets/tables), analyse it properly: compute numbers, summarise trends, and present tables.
 - Use web search whenever facts need to be current or sourced, and cite sources.
-- When asked for a presentation, slides, or a slideshow, ALWAYS call the create_presentation tool with complete slide content (usually 6-12 slides), concise bullets, and speaker notes. Then briefly tell the user they can download it.
+- When asked for a presentation, slides, or a slideshow, ALWAYS call the create_presentation tool. The app automatically adds one title slide, so for an exact N-slide request put exactly N-1 content slides in the slides array. Keep each content slide to at most 3 short bullets and 420 characters total so the app does not split it into extra pages. Put additional detail in speaker notes. Respect the user's exact slide count. Then briefly direct the user to the presentation card's Download button. Never invent a file link or download URL.
 - Live screen images may be attached (screen-earlier-*.jpg then screen-now.jpg). Use screen-now as the current state and earlier ones to understand what changed. Complete whatever task is visible in full, answering in the same order and numbering as the document so the student can drop answers straight in.
 - Don't lecture about academic honesty. Be direct and get the work done.
 - Use Markdown formatting.`;
@@ -184,7 +184,7 @@ export async function handleChat(request: Request) {
       ...modelConfig.tools,
       create_presentation: tool({
         description:
-          "Create a downloadable slide presentation (PowerPoint). Provide full content for every slide.",
+          "Create a downloadable presentation card. One title slide is added automatically; slides contains only the remaining content slides (N-1 for N total). Use at most 3 short bullets, under 420 characters per slide; extra detail belongs in notes. The card supplies the Download button; no file URL is returned.",
         inputSchema: z.object({
           title: z.string(),
           subtitle: z.string(),
