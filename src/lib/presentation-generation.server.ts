@@ -156,13 +156,13 @@ export function presentationResponse({
               reasoningEffort: config.model.modelId === "qwen/qwen3.8-27b" ? "none" : "low",
               reasoningFormat: "hidden",
               structuredOutputs: true,
-              strictJsonSchema: true,
+              strictJsonSchema: false,
             },
           },
           messages: modelMessages,
           instructions:
             instructions +
-            "\nFor this request, return ONLY the presentation JSON object specified by the response schema. Do not call functions or write an introduction. Include exactly the requested number of slides (one title slide is added automatically). When restyling, preserve the existing deck's title and content unless the user asks to change them. Keep notes to one short sentence and each slide to 2-3 concise bullets. The COVER SVG must be compact, about 1000-1800 characters: use 10-20 simple shapes with single-quoted attributes and reusable defs/use shapes; never hundreds of individual leaves or complex path points. Set every content slide artwork to an empty string unless a small specific diagram is essential. The app reuses cover illustration as a decorative band on content slides. Match the reference composition, not just its colours: centred headings with edge illustrations should use coverLayout centered, without a white side panel. Match the reference style and user-requested design." +
+            "\nFor this request, return ONLY the presentation JSON object specified by the response schema. Do not call functions or write an introduction. Include exactly the requested number of slides (one title slide is added automatically). When restyling, preserve the existing deck's title and content unless the user asks to change them. Keep notes to one short sentence and each slide to 2-3 concise bullets. The COVER SVG must be compact, about 1800-3000 characters: use 20-40 thoughtfully arranged shapes with single-quoted attributes and reusable defs/use shapes; layer several colours and silhouettes for depth rather than sparse generic primitives; never hundreds of individual leaves or complex path points. Set every content slide artwork to an empty string unless a small specific diagram is essential. The app reuses cover illustration as a decorative band on content slides. Match the reference composition, not just its colours: centred headings with edge illustrations should use coverLayout centered, without a white side panel. Match the reference style and user-requested design." +
             (requestedCount >= 1 && requestedCount <= 30
               ? ` CRITICAL: This deck has ${requestedCount} total pages. Return exactly ${requestedCount - 1} content slide objects in slides; the title page is separate.`
               : ""),
@@ -172,6 +172,7 @@ export function presentationResponse({
           abortSignal,
         });
         const deck = result.output;
+        for (const slide of deck.slides) slide.notes ??= "";
         if (requestedCount >= 1 && requestedCount <= 30) {
           const target = requestedCount - 1;
           const sameTitle = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -203,7 +204,7 @@ export function presentationResponse({
                 reasoningEffort: config.model.modelId === "qwen/qwen3.8-27b" ? "none" : "low",
                 reasoningFormat: "hidden",
                 structuredOutputs: true,
-                strictJsonSchema: true,
+                strictJsonSchema: false,
               },
             },
             instructions:
@@ -272,11 +273,12 @@ export const presentationSchema = z.object({
     z.object({
       title: z.string().max(120),
       bullets: z.array(z.string().max(130)).max(3),
-      notes: z.string().max(200),
-      layout: z.enum(["cards", "split", "statement", "list"]),
+      notes: z.string().max(200).optional(),
+      layout: z.enum(["cards", "split", "statement", "list"]).optional(),
       artwork: z
         .string()
         .max(800)
+        .optional()
         .describe("Optional original SVG illustration for this content slide"),
     }),
   ),
