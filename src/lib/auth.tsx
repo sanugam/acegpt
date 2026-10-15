@@ -30,3 +30,30 @@ export async function createThread() {
   if (error) throw error;
   return data.id;
 }
+
+// Guest identities still use Supabase tokens and the existing per-user policies.
+// Never remove server authorization just to hide the sign-in screen.
+let guestSession: Promise<Session> | undefined;
+export async function ensureChatSession(): Promise<Session> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  if (data.session) return data.session;
+  if (!guestSession) {
+    guestSession = (async () => {
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error || !data.session) {
+        throw new Error(
+          "Guest chat isn't enabled on this deployment yet. Enable anonymous sign-ins in the app's backend to send messages without a login screen.",
+        );
+      }
+      return data.session;
+    })().finally(() => {
+      guestSession = undefined;
+    });
+  }
+  return guestSession;
+}
+
+export function isGuestThread(threadId: string) {
+  return threadId.startsWith("guest-");
+}

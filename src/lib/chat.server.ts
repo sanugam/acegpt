@@ -81,7 +81,7 @@ export async function handleChat(request: Request) {
   const SUPABASE_KEY = process.env["SUPABASE_PUBLISHABLE_KEY"];
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!SUPABASE_URL || !SUPABASE_KEY || !apiKey) {
-    return json(500, { error: "Server is not configured." });
+    return json(503, { error: !apiKey ? "Ace is missing its server AI key. Add LOVABLE_API_KEY to this deployment and redeploy to enable replies." : "Ace is missing its database configuration. Check the deployment environment variables." });
   }
 
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");

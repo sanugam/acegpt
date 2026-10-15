@@ -7,17 +7,19 @@ import { toast } from "sonner";
 import logo from "@/assets/ace-logo.png";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { createThread } from "@/lib/auth";
+import { createThread, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({ activeId }: { activeId: string }) {
   const navigate = useNavigate();
+  const { session } = useAuth();
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const { data: threads = [] } = useQuery({
     queryKey: ["threads"],
+    enabled: Boolean(session),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("threads")
@@ -30,7 +32,7 @@ export function Sidebar({ activeId }: { activeId: string }) {
 
   async function newChat() {
     try {
-      const id = await createThread();
+      const id = session ? await createThread() : `guest-${crypto.randomUUID()}`;
       await qc.invalidateQueries({ queryKey: ["threads"] });
       navigate({ to: "/chat/$threadId", params: { threadId: id } });
     } catch (e) {
@@ -116,10 +118,20 @@ export function Sidebar({ activeId }: { activeId: string }) {
                   }}
                   className="w-full rounded bg-background px-2 py-1 text-sm outline-none"
                 />
-                <button type="button" aria-label="Save name" onClick={() => rename(t.id)} className="p-1 text-primary">
+                <button
+                  type="button"
+                  aria-label="Save name"
+                  onClick={() => rename(t.id)}
+                  className="p-1 text-primary"
+                >
                   <Check className="size-4" />
                 </button>
-                <button type="button" aria-label="Cancel" onClick={() => setEditingId(null)} className="p-1 text-muted-foreground">
+                <button
+                  type="button"
+                  aria-label="Cancel"
+                  onClick={() => setEditingId(null)}
+                  className="p-1 text-muted-foreground"
+                >
                   <X className="size-4" />
                 </button>
               </div>
@@ -156,18 +168,24 @@ export function Sidebar({ activeId }: { activeId: string }) {
           </div>
         ))}
       </nav>
-      <div className="border-t border-sidebar-border p-3">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 text-muted-foreground"
-          onClick={async () => {
-            await supabase.auth.signOut();
-            navigate({ to: "/" });
-          }}
-        >
-          <LogOut className="size-4" /> Sign out
-        </Button>
-      </div>
+      {session ? (
+        <div className="border-t border-sidebar-border p-3">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 text-muted-foreground"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate({ to: "/" });
+            }}
+          >
+            <LogOut className="size-4" /> Sign out
+          </Button>
+        </div>
+      ) : (
+        <p className="border-t border-sidebar-border p-4 text-xs text-muted-foreground">
+          Guest workspace · No sign-in screen needed
+        </p>
+      )}
     </aside>
   );
 }

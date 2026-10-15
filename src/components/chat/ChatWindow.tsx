@@ -1,3 +1,5 @@
+import { useNavigate } from "@tanstack/react-router";
+import { createThread, ensureChatSession, isGuestThread } from "@/lib/auth";
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
@@ -37,7 +39,6 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/ai-elements/tool";
-import { supabase } from "@/integrations/supabase/client";
 import type { Deck } from "@/lib/pptx";
 import { PresentationCard } from "./PresentationCard";
 import { AnswerDownloads } from "./AnswerDownloads";
@@ -57,6 +58,8 @@ export function ChatWindow({
   initialMessages: UIMessage[];
 }) {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const savedThreadId = useRef<string | null>(isGuestThread(threadId) ? null : threadId);
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -64,21 +67,31 @@ export function ChatWindow({
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        body: { threadId },
-        headers: async (): Promise<Record<string, string>> => {
-          const { data } = await supabase.auth.getSession();
-          return data.session ? { Authorization: `Bearer ${data.session.access_token}` } : {};
+        prepareSendMessagesRequest: async ({ messages, trigger, messageId }) => {
+          const session = await ensureChatSession();
+          savedThreadId.current ??= await createThread();
+          return {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+            body: { threadId: savedThreadId.current, messages, trigger, messageId },
+          };
         },
       }),
     [threadId],
   );
 
-  const { messages, sendMessage, regenerate, status, stop } = useChat({
+  const { messages, sendMessage, regenerate, status, stop, error } = useChat({
     id: threadId,
     messages: initialMessages,
     transport,
     onError: (e) => toast.error(e.message || "Something went wrong."),
-    onFinish: () => {
+    onFinish: ({ isError, isAbort }) => {
+      if (!isError && !isAbort && savedThreadId.current && savedThreadId.current !== threadId) {
+        navigate({
+          to: "/chat/$threadId",
+          params: { threadId: savedThreadId.current },
+          replace: true,
+        });
+      }
       qc.invalidateQueries({ queryKey: ["threads"] });
       qc.invalidateQueries({ queryKey: ["messages", threadId] });
       textareaRef.current?.focus();
@@ -238,9 +251,7 @@ export function ChatWindow({
                 <span className="size-2 animate-pulse rounded-full bg-primary" />
                 Ace is watching your screen
               </span>
-              <span className="text-muted-foreground">
-                Just type "do this", or tap the button.
-              </span>
+              <span className="text-muted-foreground">Just type "do this", or tap the button.</span>
             </p>
             <button
               type="button"
@@ -253,6 +264,21 @@ export function ChatWindow({
           </div>
         )}
         {!stream && <video ref={videoRef} className="hidden" />}
+        {error && (
+          <div
+            role="alert"
+            className="mb-3 rounded-xl border border-destructive/40 bg-card p-3 text-sm"
+          >
+            <p>{error.message || "Ace couldn't send this message. Please try again."}</p>
+            <button
+              type="button"
+              onClick={() => regenerate()}
+              className="mt-2 font-semibold underline"
+            >
+              Retry message
+            </button>
+          </div>
+        )}
         <PromptInput
           onSubmit={submit}
           multiple

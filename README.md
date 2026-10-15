@@ -24,3 +24,11 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Deploying chat on Vercel
+
+The Vercel build uses Nitro's `vercel` target. Do not rewrite all requests to `/`: the app needs its `/api/chat` server route as well as page routes.
+
+Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and server-only `LOVABLE_API_KEY` in the deployment environment. Never prefix the AI key with `VITE_` or commit it. Redeploy after changing these values.
+
+For chat without a sign-in screen, enable anonymous sign-ins in the Supabase/Lovable backend authentication settings. Guest sessions get their own user ID; existing per-user database policies and server token verification continue to apply. The interface opens before a session is created. The first message creates a guest session and a real database thread, and a completed response updates the URL to that saved chat. If guest access or the AI key is missing, chat displays an actionable error instead of returning to the welcome page.
