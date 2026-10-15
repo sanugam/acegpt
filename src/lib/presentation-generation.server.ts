@@ -82,11 +82,18 @@ export function presentationResponse({
             content: `Use this web research and include its source URLs in relevant speaker notes:\n${research.text.slice(0, 6000)}`,
           });
         }
+        const requestedCount = Number(requestText.match(/\b(\d+)[ -]*slides?\b/i)?.[1]);
+        const schema =
+          requestedCount >= 1 && requestedCount <= 30
+            ? presentationSchema.extend({
+                slides: z.array(presentationSchema.shape.slides.element).length(requestedCount - 1),
+              })
+            : presentationSchema;
         const result = await generateText({
           model: config.model,
           providerOptions: {
             groq: {
-              reasoningEffort: "low",
+              reasoningEffort: config.model.modelId === "qwen/qwen3.8-27b" ? "none" : "low",
               reasoningFormat: "hidden",
               structuredOutputs: true,
               strictJsonSchema: true,
@@ -95,9 +102,9 @@ export function presentationResponse({
           messages: modelMessages,
           instructions:
             instructions +
-            "\nFor this request, return ONLY the presentation JSON object specified by the response schema. Do not call functions or write an introduction. Include exactly the requested number of slides (one title slide is added automatically). Keep notes to one short sentence and each slide to 2-3 concise bullets. Use compact original SVG artwork (preferably under 2500 characters) with single-quoted SVG attributes and reusable defs/use shapes. Per-slide artwork can be an empty string when not needed. Match the reference style and user-requested design.",
-          output: Output.object({ schema: presentationSchema }),
-          maxOutputTokens: 4096,
+            "\nFor this request, return ONLY the presentation JSON object specified by the response schema. Do not call functions or write an introduction. Include exactly the requested number of slides (one title slide is added automatically). Keep notes to one short sentence and each slide to 2-3 concise bullets. The COVER SVG must be compact, about 1000-1800 characters: use 10-20 simple shapes with single-quoted attributes and reusable defs/use shapes; never hundreds of individual leaves or complex path points. Set every content slide artwork to an empty string unless a small specific diagram is essential. The app reuses cover illustration as a decorative band on content slides. Match the reference style and user-requested design.",
+          output: Output.object({ schema }),
+          maxOutputTokens: 8192,
           maxRetries: 1,
           abortSignal,
         });
@@ -132,10 +139,10 @@ export function presentationResponse({
 }
 
 export const presentationSchema = z.object({
-  title: z.string(),
-  subtitle: z.string(),
+  title: z.string().max(140),
+  subtitle: z.string().max(200),
   design: z.object({
-    name: z.string().describe("A short human-readable design name"),
+    name: z.string().max(80).describe("A short human-readable design name"),
     background: z.string().describe("Background colour, 6 hex digits without #"),
     foreground: z.string().describe("High contrast text colour, 6 hex digits"),
     accent: z.string().describe("Accent colour, 6 hex digits"),
@@ -144,20 +151,20 @@ export const presentationSchema = z.object({
     coverLayout: z.enum(["centered", "split", "editorial"]),
     artwork: z
       .string()
-      .max(20_000)
+      .max(3500)
       .describe(
         "Original topic-specific SVG artwork, viewBox 0 0 1600 900; decorative edges and bottom, clear title area; no text/scripts/external URLs",
       ),
   }),
   slides: z.array(
     z.object({
-      title: z.string(),
-      bullets: z.array(z.string()),
-      notes: z.string(),
+      title: z.string().max(120),
+      bullets: z.array(z.string().max(130)).max(3),
+      notes: z.string().max(200),
       layout: z.enum(["cards", "split", "statement", "list"]),
       artwork: z
         .string()
-        .max(12_000)
+        .max(800)
         .describe("Optional original SVG illustration for this content slide"),
     }),
   ),
