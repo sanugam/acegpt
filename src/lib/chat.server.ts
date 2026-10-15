@@ -210,9 +210,17 @@ export async function handleChat(request: Request) {
 
   const response = result.toUIMessageStreamResponse({
     originalMessages: messages,
+    generateMessageId: () => crypto.randomUUID(),
     sendReasoning: true,
     sendSources: true,
     onFinish: async ({ responseMessage }) => {
+      if (
+        !responseMessage.id ||
+        !responseMessage.parts.some(
+          (part) => (part.type === "text" && part.text.trim()) || part.type.startsWith("tool-"),
+        )
+      )
+        return;
       const { error } = await supabase.from("messages").upsert(
         {
           thread_id: threadId,

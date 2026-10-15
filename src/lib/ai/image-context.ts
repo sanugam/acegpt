@@ -10,7 +10,8 @@ export function recentImageContext(messages: UIMessage[]): UIMessage[] {
     .reverse()
     .map((message) => ({
       ...message,
-    parts: [...message.parts].filter((part) => part.type !== "reasoning")
+      parts: [...message.parts]
+        .filter((part) => part.type !== "reasoning")
         .reverse()
         .map((part) => {
           if (part.type !== "file" || !part.mediaType.startsWith("image/")) return part;

@@ -54,7 +54,10 @@ export async function packImageRequest(messages: UIMessage[]): Promise<UIMessage
     }));
     let imageUrl = canvas.toDataURL("image/jpeg", 0.8);
     if (imageUrl.length > 900_000) imageUrl = canvas.toDataURL("image/jpeg", 0.5);
-    if (imageUrl.length > 900_000) throw new Error("These pictures are too large together. Send them separately or crop them first.");
+    if (imageUrl.length > 900_000)
+      throw new Error(
+        "These pictures are too large together. Send them separately or crop them first.",
+      );
     const reverseIndex = [...packed].reverse().findIndex((message) => message.role === "user");
     const lastUser = reverseIndex < 0 ? -1 : packed.length - 1 - reverseIndex;
     if (lastUser >= 0)
@@ -62,7 +65,7 @@ export async function packImageRequest(messages: UIMessage[]): Promise<UIMessage
         type: "file",
         mediaType: "image/jpeg",
         filename: "combined-pictures.jpg",
-      url: imageUrl,
+        url: imageUrl,
       });
     return packed;
   } finally {
