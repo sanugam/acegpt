@@ -148,7 +148,11 @@ export const presentationSchema = z.object({
     accent: z.string().describe("Accent colour, 6 hex digits"),
     surface: z.string().describe("Content card colour, 6 hex digits"),
     font: z.enum(["sans", "serif", "rounded"]),
-    coverLayout: z.enum(["centered", "split", "editorial"]).describe("Match reference composition. Use centered for centred headings and artwork at the edges; split for an explicitly requested side panel; editorial for magazine-style typography."),
+    coverLayout: z
+      .enum(["centered", "split", "editorial"])
+      .describe(
+        "Match reference composition. Use centered for centred headings and artwork at the edges; split for an explicitly requested side panel; editorial for magazine-style typography.",
+      ),
     artwork: z
       .string()
       .max(3500)
