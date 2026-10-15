@@ -13,7 +13,7 @@ import { ensureChatSession, isGuestThread } from "@/lib/auth";
 
 beforeEach(() => vi.resetAllMocks());
 
-describe("chat without a sign-in screen", () => {
+describe("chat with public guest access disabled", () => {
   it("keeps an existing session instead of creating another identity", async () => {
     const session = { access_token: "existing" };
     auth.getSession.mockResolvedValue({ data: { session } });
@@ -21,27 +21,19 @@ describe("chat without a sign-in screen", () => {
     expect(auth.signInAnonymously).not.toHaveBeenCalled();
   });
 
-  it("creates one private guest session for concurrent requests", async () => {
-    const session = { access_token: "guest" };
+  it("asks for sign-in without trying to create a guest identity", async () => {
     auth.getSession.mockResolvedValue({ data: { session: null } });
-    auth.signInAnonymously.mockResolvedValue({ data: { session } });
-    expect(await Promise.all([ensureChatSession(), ensureChatSession()])).toEqual([
-      session,
-      session,
-    ]);
-    expect(auth.signInAnonymously).toHaveBeenCalledTimes(1);
+    await expect(ensureChatSession()).rejects.toThrow("Sign in to Ace");
+    expect(auth.signInAnonymously).not.toHaveBeenCalled();
   });
 
-  it("explains disabled guest access and permits retry instead of redirecting home", async () => {
+  it("can retry a message after the user signs in", async () => {
     auth.getSession.mockResolvedValue({ data: { session: null } });
-    auth.signInAnonymously.mockResolvedValue({
-      data: { session: null },
-      error: new Error("disabled"),
-    });
-    await expect(ensureChatSession()).rejects.toThrow("Guest chat isn't enabled");
-    const session = { access_token: "enabled" };
-    auth.signInAnonymously.mockResolvedValue({ data: { session } });
+    await expect(ensureChatSession()).rejects.toThrow("Sign in to Ace");
+    const session = { access_token: "signed-in" };
+    auth.getSession.mockResolvedValue({ data: { session } });
     expect(await ensureChatSession()).toBe(session);
+    expect(auth.signInAnonymously).not.toHaveBeenCalled();
   });
 
   it("distinguishes unsaved guest chats from database thread IDs", () => {

@@ -18,7 +18,7 @@ export function Sidebar({ activeId }: { activeId: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const { data: threads = [] } = useQuery({
-    queryKey: ["threads"],
+    queryKey: ["threads", session?.user.id],
     enabled: Boolean(session),
     queryFn: async () => {
       const { data, error } = await supabase
@@ -175,6 +175,7 @@ export function Sidebar({ activeId }: { activeId: string }) {
             className="w-full justify-start gap-2 text-muted-foreground"
             onClick={async () => {
               await supabase.auth.signOut();
+              qc.clear();
               navigate({ to: "/" });
             }}
           >
@@ -183,7 +184,7 @@ export function Sidebar({ activeId }: { activeId: string }) {
         </div>
       ) : (
         <p className="border-t border-sidebar-border p-4 text-xs text-muted-foreground">
-          Guest workspace · No sign-in screen needed
+          Sign in to send messages and save chats
         </p>
       )}
     </aside>

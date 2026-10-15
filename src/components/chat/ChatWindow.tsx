@@ -1,5 +1,6 @@
+import { SignInCard } from "@/components/auth/SignInCard";
 import { useNavigate } from "@tanstack/react-router";
-import { createThread, ensureChatSession, isGuestThread } from "@/lib/auth";
+import { createThread, ensureChatSession, isGuestThread, useAuth } from "@/lib/auth";
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
@@ -58,6 +59,7 @@ export function ChatWindow({
   initialMessages: UIMessage[];
 }) {
   const qc = useQueryClient();
+  const { session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const savedThreadId = useRef<string | null>(isGuestThread(threadId) ? null : threadId);
   const [input, setInput] = useState("");
@@ -172,13 +174,14 @@ export function ChatWindow({
     const files = [...msg.files];
     if (stream) files.push(...screenParts());
     if (!text && files.length === 0) return;
+    if (!session) return;
     sendMessage({ text: text || "Complete the task shown on my screen.", files });
     setInput("");
     textareaRef.current?.focus();
   }
 
   function doMyScreen() {
-    if (!stream || busy) return;
+    if (!stream || busy || !session) return;
     sendMessage({
       text: "Look at my screen (the last image is what it shows right now) and complete the task fully. Lay out the finished answers so I can drop them straight in.",
       files: screenParts(),
@@ -205,6 +208,7 @@ export function ChatWindow({
                   <button
                     key={s}
                     type="button"
+                    disabled={!session}
                     onClick={() => sendMessage({ text: s })}
                     className="rounded-xl border bg-card/70 p-4 text-left text-sm transition hover:border-primary/60 hover:bg-card"
                   >
@@ -264,6 +268,11 @@ export function ChatWindow({
           </div>
         )}
         {!stream && <video ref={videoRef} className="hidden" />}
+        {!session && !authLoading && (
+          <div className="mb-3">
+            <SignInCard />
+          </div>
+        )}
         {error && (
           <div
             role="alert"
@@ -306,7 +315,7 @@ export function ChatWindow({
             <PromptInputSubmit
               status={status}
               onStop={stop}
-              disabled={!busy && !input.trim() && !stream}
+              disabled={!session || (!busy && !input.trim() && !stream)}
             />
           </PromptInputFooter>
         </PromptInput>
