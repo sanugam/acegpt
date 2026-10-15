@@ -229,5 +229,7 @@ export async function handleChat(request: Request) {
       return "Something went wrong generating a reply.";
     },
   });
-  return withLovableAiGatewayRunIdHeader(response, runIdFetch);
+  // Only the Lovable gateway publishes its run ID. Waiting for it on a
+  // direct Groq request would block the entire response indefinitely.
+  return groqKey ? response : withLovableAiGatewayRunIdHeader(response, runIdFetch);
 }
