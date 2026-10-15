@@ -482,6 +482,7 @@ function ChatMessage({
                   key={key}
                   deck={(part.input ?? {}) as Partial<Deck>}
                   ready={part.state === "output-available"}
+                  error={part.state === "output-error" ? part.errorText : undefined}
                 />
               );
             default:

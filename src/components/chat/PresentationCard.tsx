@@ -11,7 +11,15 @@ import {
 import { deckPages, renderSlide, THEMES, type ThemeName } from "@/lib/presentation-design";
 import { downloadDeck, downloadDeckPdf, type Deck } from "@/lib/pptx";
 
-export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: boolean }) {
+export function PresentationCard({
+  deck,
+  ready,
+  error,
+}: {
+  deck: Partial<Deck>;
+  ready: boolean;
+  error?: string | undefined;
+}) {
   const [busy, setBusy] = useState(false);
   const [theme, setTheme] = useState<ThemeName>("studio");
   const [index, setIndex] = useState(0);
@@ -59,8 +67,12 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Presentation className="size-5 shrink-0 text-primary" />
           <div className="min-w-0">
-            <p className="truncate font-semibold">{deck.title ?? "Building presentation…"}</p>
-            <p className="text-xs text-muted-foreground">{pages.length} slides</p>
+            <p className="truncate font-semibold">
+              {error
+                ? "Presentation couldn't finish"
+                : (deck.title ?? "Designing your presentation…")}
+            </p>
+            {deck.title && <p className="text-xs text-muted-foreground">{pages.length} slides</p>}
           </div>
         </div>
         <DropdownMenu>
@@ -78,40 +90,52 @@ export function PresentationCard({ deck, ready }: { deck: Partial<Deck>; ready: 
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div
-        className="flex flex-wrap items-center gap-1 px-3 py-2"
-        role="group"
-        aria-label="Presentation theme"
-      >
-        {deck.design ? (
-          <div className="px-2 py-1 text-sm">
-            <span className="font-semibold">{deck.design.name || "Custom design"}</span>
-            <span className="ml-2 text-muted-foreground">
-              Ask Ace to change the colours, layout, or illustrations.
-            </span>
+      {deck.title && (
+        <div
+          className="flex flex-wrap items-center gap-1 px-3 py-2"
+          role="group"
+          aria-label="Presentation theme"
+        >
+          {deck.design ? (
+            <div className="px-2 py-1 text-sm">
+              <span className="font-semibold">{deck.design.name || "Custom design"}</span>
+              <span className="ml-2 text-muted-foreground">
+                Ask Ace to change the colours, layout, or illustrations.
+              </span>
+            </div>
+          ) : (
+            (Object.keys(THEMES) as ThemeName[]).map((name) => (
+              <Button
+                key={name}
+                size="sm"
+                variant={theme === name ? "secondary" : "ghost"}
+                aria-pressed={theme === name}
+                onClick={() => setTheme(name)}
+              >
+                <span className={`deck-swatch deck-swatch-${name}`} />
+                {THEMES[name].label}
+              </Button>
+            ))
+          )}
+        </div>
+      )}
+      <div className="aspect-video bg-secondary" aria-busy={!image}>
+        {error ? (
+          <p role="alert" className="p-8 text-sm">
+            {error}
+          </p>
+        ) : !deck.title ? (
+          <div className="flex h-full items-center justify-center p-8 text-center text-muted-foreground">
+            Choosing colours, composing slides, and drawing illustrations…
           </div>
         ) : (
-          (Object.keys(THEMES) as ThemeName[]).map((name) => (
-            <Button
-              key={name}
-              size="sm"
-              variant={theme === name ? "secondary" : "ghost"}
-              aria-pressed={theme === name}
-              onClick={() => setTheme(name)}
-            >
-              <span className={`deck-swatch deck-swatch-${name}`} />
-              {THEMES[name].label}
-            </Button>
-          ))
-        )}
-      </div>
-      <div className="aspect-video bg-secondary" aria-busy={!image}>
-        {image && (
-          <img
-            src={image}
-            alt={`Slide ${active + 1}: ${currentPage?.title ?? ""}`}
-            className="h-full w-full object-contain"
-          />
+          image && (
+            <img
+              src={image}
+              alt={`Slide ${active + 1}: ${currentPage?.title ?? ""}`}
+              className="h-full w-full object-contain"
+            />
+          )
         )}
       </div>
       <div className="flex items-center justify-between px-3 py-2">

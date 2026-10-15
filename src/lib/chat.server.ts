@@ -9,7 +9,11 @@ import {
   type UIMessage,
 } from "ai";
 import { presentationContext } from "@/lib/presentation-context";
-import { z } from "zod";
+import {
+  presentationSchema,
+  isPresentationRequest,
+  presentationResponse,
+} from "@/lib/presentation-generation.server";
 
 import { groqChatConfig, groqInput } from "@/lib/ai/groq.server";
 import { recentImageContext } from "@/lib/ai/image-context";
@@ -191,6 +195,51 @@ export async function handleChat(request: Request) {
         instructionSuffix: "",
       };
 
+  const saveReply = async (responseMessage: UIMessage) => {
+    if (
+      !responseMessage.id ||
+      !responseMessage.parts.some(
+        (part) => (part.type === "text" && part.text.trim()) || part.type.startsWith("tool-"),
+      )
+    )
+      return;
+    const { error } = await supabase.from("messages").upsert(
+      {
+        thread_id: threadId,
+        user_id: userId,
+        message_id: responseMessage.id,
+        role: "assistant",
+        parts: responseMessage.parts as never,
+      },
+      { onConflict: "thread_id,message_id" },
+    );
+    if (error) console.error("save assistant message failed", error);
+  };
+  const chatError = (error: unknown) => {
+    console.error(error);
+    const status = (error as { statusCode?: number })?.statusCode;
+    if (status === 402) return "Out of AI credits. Add credits to keep going.";
+    if (status === 429)
+      return "The AI usage limit has been reached. Wait a little and retry, or start a shorter chat. No paid upgrade is required to retry within the free limits.";
+    if (status === 413)
+      return "This conversation is too large for the free AI request limit. Try a shorter question or start a new chat with only the files you need.";
+    if (status === 401 || status === 403)
+      return "The AI key was rejected. Check the server API key and model permissions.";
+    return "Something went wrong generating a reply.";
+  };
+
+  if (groqKey && isPresentationRequest(messages)) {
+    return presentationResponse({
+      apiKey: groqKey,
+      preparedMessages,
+      originalMessages: messages,
+      instructions: INSTRUCTIONS,
+      abortSignal: request.signal,
+      saveReply,
+      onError: chatError,
+    });
+  }
+
   const result = streamText({
     ...modelConfig,
     instructions: INSTRUCTIONS + modelConfig.instructionSuffix,
@@ -202,38 +251,7 @@ export async function handleChat(request: Request) {
       create_presentation: tool({
         description:
           "Create a downloadable presentation card. One title slide is added automatically; slides contains only the remaining content slides (N-1 for N total). Use at most 3 short bullets, under 420 characters per slide; extra detail belongs in notes. The card supplies the Download button; no file URL is returned.",
-        inputSchema: z.object({
-          title: z.string(),
-          subtitle: z.string(),
-          design: z.object({
-            name: z.string().describe("A short human-readable design name"),
-            background: z.string().describe("Background colour, 6 hex digits without #"),
-            foreground: z.string().describe("High contrast text colour, 6 hex digits"),
-            accent: z.string().describe("Accent colour, 6 hex digits"),
-            surface: z.string().describe("Content card colour, 6 hex digits"),
-            font: z.enum(["sans", "serif", "rounded"]),
-            coverLayout: z.enum(["centered", "split", "editorial"]),
-            artwork: z
-              .string()
-              .max(20_000)
-              .describe(
-                "Original topic-specific SVG artwork, viewBox 0 0 1600 900; decorative edges and bottom, clear title area; no text/scripts/external URLs",
-              ),
-          }),
-          slides: z.array(
-            z.object({
-              title: z.string(),
-              bullets: z.array(z.string()),
-              notes: z.string(),
-              layout: z.enum(["cards", "split", "statement", "list"]).optional(),
-              artwork: z
-                .string()
-                .max(12_000)
-                .optional()
-                .describe("Optional original SVG illustration for this content slide"),
-            }),
-          ),
-        }),
+        inputSchema: presentationSchema,
         execute: async (input) => ({ ok: true, slideCount: input.slides.length }),
       }),
     },
@@ -244,38 +262,8 @@ export async function handleChat(request: Request) {
     generateMessageId: () => crypto.randomUUID(),
     sendReasoning: true,
     sendSources: true,
-    onFinish: async ({ responseMessage }) => {
-      if (
-        !responseMessage.id ||
-        !responseMessage.parts.some(
-          (part) => (part.type === "text" && part.text.trim()) || part.type.startsWith("tool-"),
-        )
-      )
-        return;
-      const { error } = await supabase.from("messages").upsert(
-        {
-          thread_id: threadId,
-          user_id: userId,
-          message_id: responseMessage.id,
-          role: "assistant",
-          parts: responseMessage.parts as never,
-        },
-        { onConflict: "thread_id,message_id" },
-      );
-      if (error) console.error("save assistant message failed", error);
-    },
-    onError: (error) => {
-      console.error(error);
-      const status = (error as { statusCode?: number })?.statusCode;
-      if (status === 402) return "Out of AI credits. Add credits to keep going.";
-      if (status === 429)
-        return "The AI usage limit has been reached. Wait a little and retry, or start a shorter chat. No paid upgrade is required to retry within the free limits.";
-      if (status === 413)
-        return "This conversation is too large for the free AI request limit. Try a shorter question or start a new chat with only the files you need.";
-      if (status === 401 || status === 403)
-        return "The AI key was rejected. Check the server API key and model permissions.";
-      return "Something went wrong generating a reply.";
-    },
+    onFinish: ({ responseMessage }) => saveReply(responseMessage),
+    onError: chatError,
   });
   // Only the Lovable gateway publishes its run ID. Waiting for it on a
   // direct Groq request would block the entire response indefinitely.
