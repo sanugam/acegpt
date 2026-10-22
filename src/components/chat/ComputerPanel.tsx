@@ -125,6 +125,7 @@ export function ComputerPanel() {
     setActivity([]);
     const history: string[] = [];
     let failedActions = 0;
+    let failedPlans = 0;
     try {
       const session = await ensureChatSession();
       for (let step = 0; step < 12; step++) {
@@ -157,7 +158,15 @@ export function ComputerPanel() {
           step--;
           continue;
         }
-        if (!response.ok) throw new Error(result.error || "The AI could not choose a next step.");
+        if (!response.ok) {
+          if (result.retryable === true && failedPlans++ < 2) {
+            setStatus("The AI response was incomplete. Pausing, then checking the screen again…");
+            await pause(18000, abort.signal);
+            continue;
+          }
+          throw new Error(result.error || "The AI could not choose a next step.");
+        }
+        failedPlans = 0;
         const action = result.action as ComputerAction;
         if (action.kind === "done") {
           setStatus(`Finished: ${action.reason}`);

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { generateText, Output } from "ai";
+import { generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { groqChatConfig } from "./ai/groq.server";
 import {
@@ -79,7 +79,7 @@ export async function handleComputer(request: Request) {
         },
       ],
       output: Output.object({ schema: computerActionSchema }),
-      maxOutputTokens: vision ? 500 : 1000,
+      maxOutputTokens: vision ? 500 : 2048,
       maxRetries: 0,
       abortSignal: request.signal,
     });
@@ -101,6 +101,12 @@ export async function handleComputer(request: Request) {
       });
     if (error instanceof z.ZodError)
       return respond(400, { error: "The screen observation was too large or invalid." });
+    if (NoObjectGeneratedError.isInstance(error) || NoOutputGeneratedError.isInstance(error))
+      return respond(502, {
+        error:
+          "The AI did not return a complete action. Checking the screen again before retrying.",
+        retryable: true,
+      });
     console.error("Computer planner failed", error instanceof Error ? error.message : "unknown");
     return respond(502, {
       error: "Ace could not choose a reliable next step. Nothing was executed; try again.",

@@ -5,8 +5,8 @@
 <key>CFBundleName</key><string>ACEGPT Companion</string>
 <key>CFBundleExecutable</key><string>ACEGPTCompanion</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>1.0.1</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSScreenCaptureUsageDescription</key><string>Send your visible screen to ACEGPT when you start a computer task.</string>

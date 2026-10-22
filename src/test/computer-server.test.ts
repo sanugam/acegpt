@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { handleComputer } from "@/lib/computer.server";
+import { NoOutputGeneratedError } from "ai";
 const { generate, claims } = vi.hoisted(() => ({ generate: vi.fn(), claims: vi.fn() }));
 vi.mock("ai", async (original) => ({
   ...(await original<typeof import("ai")>()),
@@ -84,4 +85,13 @@ it("returns a retryable pause when the free provider limit is reached", async ()
   const response = await handleComputer(request());
   expect(response.status).toBe(429);
   expect(await response.json()).toHaveProperty("retryAfter", 25);
+});
+it("allows a fresh observation to retry an incomplete plan without exposing provider details", async () => {
+  setup();
+  generate.mockRejectedValue(new NoOutputGeneratedError({ message: "private provider output" }));
+  const response = await handleComputer(request());
+  expect(response.status).toBe(502);
+  const body = await response.json();
+  expect(body.retryable).toBe(true);
+  expect(JSON.stringify(body)).not.toContain("private provider output");
 });

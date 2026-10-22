@@ -131,8 +131,13 @@ struct ElementInfo { let element: AXUIElement; let label: String; let pid: pid_t
     guard active && accessibility && recording else { throw BridgeError(message: "The session stopped or a macOS permission is missing.") }
     guard let app = NSWorkspace.shared.frontmostApplication else { throw BridgeError(message: "No active app is visible.") }
     let bundle = app.bundleIdentifier ?? ""
-    guard bundle != Bundle.main.bundleIdentifier else { throw BridgeError(message: "Switch to the app you want Ace to work in, then retry.") }
-    guard appIDs.contains(bundle) else { throw BridgeError(message: "Switch to a supported app, such as TextEdit, Pages, Keynote, Numbers, Calculator, Preview, Chrome or Safari.") }
+    if !appIDs.contains(bundle) {
+      // Starting from this companion (or another unsupported app) may only open
+      // a supported app. Never capture that app's screen, text, or controls.
+      elements.removeAll(); imageWidth = 0; imageHeight = 0
+      observationID = UUID().uuidString; observationDate = Date(); observedPID = app.processIdentifier
+      return ["id": observationID, "width": 1, "height": 1, "app": "No supported app active", "text": "The active app has not been observed. First use open_app to activate a supported app needed for the task. No screen image, text or controls from the current app are available. The 1x1 dimensions are placeholders. Only open_app is allowed for this observation.", "elements": [] as [[String: Any]]]
+    }
     let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
     guard let display = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) else { throw BridgeError(message: "The main display is unavailable.") }
     let excluded = content.applications.filter { $0.bundleIdentifier == Bundle.main.bundleIdentifier }
@@ -171,13 +176,32 @@ struct ElementInfo { let element: AXUIElement; let label: String; let pid: pid_t
     observationID = "" // Consume the observation: retries cannot replay a click.
     let action = command.action
     guard !needsHandoff(action.reason) else { throw BridgeError(message: "This step needs you to take over. Ace has paused.") }
+    guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier == observedPID else { throw BridgeError(message: "The active app changed. Observe again before acting.") }
     if action.kind == "open_app" {
       guard let id = action.app, appIDs.contains(id), let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { throw BridgeError(message: "That app is not supported or installed.") }
+      let sessionSecret = pairing
       let config = NSWorkspace.OpenConfiguration(); config.activates = true
-      _ = try await NSWorkspace.shared.openApplication(at: url, configuration: config)
-      activity = "Opened \(id)."; return
+      let target = try await NSWorkspace.shared.openApplication(at: url, configuration: config)
+      guard active && Date() < expires && sameSecret(pairing, sessionSecret) else { throw BridgeError(message: "The session stopped while opening the app.") }
+      let currentPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+      guard currentPID == observedPID || currentPID == target.processIdentifier else { throw BridgeError(message: "The active app changed while opening the app. Take over and start again when ready.") }
+      // Launch completion does not mean macOS has activated an already-running app.
+      // Use the granted Accessibility permission to raise it, then verify focus.
+      target.unhide()
+      _ = target.activate(options: [])
+      let targetRoot = AXUIElementCreateApplication(target.processIdentifier)
+      _ = AXUIElementSetAttributeValue(targetRoot, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+      if let window = ax(targetRoot, kAXFocusedWindowAttribute) { _ = AXUIElementPerformAction(window as! AXUIElement, kAXRaiseAction as CFString) }
+      for _ in 0..<20 {
+        guard active && Date() < expires && sameSecret(pairing, sessionSecret) else { throw BridgeError(message: "The session stopped while opening the app.") }
+        if NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier {
+          activity = "Opened and activated \(id)."; return
+        }
+        try await Task.sleep(nanoseconds: 100_000_000)
+      }
+      throw BridgeError(message: "\(target.localizedName ?? id) opened, but macOS did not bring it to the front. Take over: click its window, then start the task again.")
     }
-    guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier == observedPID, appIDs.contains(app.bundleIdentifier ?? "") else { throw BridgeError(message: "The active app changed. Observe again before acting.") }
+    guard appIDs.contains(app.bundleIdentifier ?? "") else { throw BridgeError(message: "Only opening a supported app is allowed from this screen. Nothing was executed.") }
     let root = AXUIElementCreateApplication(app.processIdentifier)
     if let focused = ax(root, kAXFocusedUIElementAttribute) {
       let element = focused as! AXUIElement

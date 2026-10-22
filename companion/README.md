@@ -12,6 +12,8 @@ The service binds only 127.0.0.1:48623. Every operation requires the exact ACEGP
 
 No startup service or persistent remote access is installed. Free AI quotas still apply; the controller pauses between steps. A task stops after 12 actions or a local session expires after 10 minutes. macOS permissions must be granted by the user; automated tests deliberately do not grant them.
 
+Starting while the companion or an unsupported app is in front returns a launch-only observation, with no screenshot, app text, or controls. Only opening an app from the supported list is permitted until that app is active. Opening an app raises its window and verifies foreground activation before reporting success; denied activation pauses for the user instead of repeatedly claiming the app opened.
+
 ## Build and tests
 
 Run `./companion/macos/build.sh` on an Apple Silicon Mac with Apple's command-line tools. This compiles source, signs locally, runs validation self-tests without invoking computer actions, and packages `public/downloads/ACEGPT-Companion-Mac.zip`. It is locally signed, not Apple-notarized; the agent must never bypass macOS security warnings. A signed and notarized release requires the owner's Apple Developer signing identity.
