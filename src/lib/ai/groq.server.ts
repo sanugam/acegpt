@@ -71,16 +71,6 @@ export function groqInput(messages: UIMessage[]) {
 
 export function groqChatConfig(apiKey: string, messages: UIMessage[], customFetch?: typeof fetch) {
   const { vision, modelId } = groqInput(messages);
-  const presentation =
-    vision ||
-    messages.some((message) =>
-      message.parts.some(
-        (part) =>
-          part.type === "tool-create_presentation" ||
-          (part.type === "text" &&
-            /\b(presentation|slides?|slideshow|deck|powerpoint)\b/i.test(part.text)),
-      ),
-    );
   const groq = createGroq({ apiKey, ...(customFetch ? { fetch: customFetch } : {}) });
   return {
     model: groq(modelId),
@@ -96,8 +86,8 @@ export function groqChatConfig(apiKey: string, messages: UIMessage[], customFetc
           }),
         }
       : { web_search: groq.tools.browserSearch({}) },
-    providerOptions: { groq: { reasoningEffort: "low" as const } },
-    maxOutputTokens: presentation ? 4096 : 2048,
+    providerOptions: { groq: { reasoningEffort: vision ? ("none" as const) : ("low" as const) } },
+    maxOutputTokens: vision ? 1000 : 4096,
     instructionSuffix: vision
       ? "\nOnly the latest three pictures are included. Earlier images have text placeholders; use the previous discussion or ask for a picture to be reattached if you need its details. You can use the web_search tool for research about the images. Cite source URLs returned by the tool."
       : "",

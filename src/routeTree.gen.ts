@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRecoveryRouteImport } from './routes/account.recovery'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiComputerRouteImport } from './routes/api/computer'
 import { Route as ChatThreadIdRouteImport } from './routes/chat.$threadId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiComputerRoute = ApiComputerRouteImport.update({
+  id: '/api/computer',
+  path: '/api/computer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatThreadIdRoute = ChatThreadIdRouteImport.update({
   id: '/chat/$threadId',
   path: '/chat/$threadId',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account/recovery': typeof AccountRecoveryRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/computer': typeof ApiComputerRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account/recovery': typeof AccountRecoveryRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/computer': typeof ApiComputerRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,38 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/account/recovery': typeof AccountRecoveryRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/computer': typeof ApiComputerRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account/recovery' | '/api/chat' | '/chat/$threadId'
+  fullPaths:
+    | '/'
+    | '/account/recovery'
+    | '/api/chat'
+    | '/api/computer'
+    | '/chat/$threadId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account/recovery' | '/api/chat' | '/chat/$threadId'
-  id: '__root__' | '/' | '/account/recovery' | '/api/chat' | '/chat/$threadId'
+  to:
+    | '/'
+    | '/account/recovery'
+    | '/api/chat'
+    | '/api/computer'
+    | '/chat/$threadId'
+  id:
+    | '__root__'
+    | '/'
+    | '/account/recovery'
+    | '/api/chat'
+    | '/api/computer'
+    | '/chat/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRecoveryRoute: typeof AccountRecoveryRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiComputerRoute: typeof ApiComputerRoute
   ChatThreadIdRoute: typeof ChatThreadIdRoute
 }
 
@@ -92,6 +118,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/computer': {
+      id: '/api/computer'
+      path: '/api/computer'
+      fullPath: '/api/computer'
+      preLoaderRoute: typeof ApiComputerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat/$threadId': {
       id: '/chat/$threadId'
       path: '/chat/$threadId'
@@ -106,6 +139,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRecoveryRoute: AccountRecoveryRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiComputerRoute: ApiComputerRoute,
   ChatThreadIdRoute: ChatThreadIdRoute,
 }
 export const routeTree = rootRouteImport

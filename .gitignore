@@ -33,3 +33,6 @@ dist-ssr
 
 # Vercel build output and project metadata
 .vercel/
+
+# Local native app build; the reproducible source and distributable zip are tracked.
+companion/build/

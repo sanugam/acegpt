@@ -13,17 +13,25 @@ export const threadMessagesQuery = (threadId: string) =>
     staleTime: Infinity,
     queryFn: async (): Promise<UIMessage[]> => {
       if (isGuestThread(threadId)) return [];
-      const { data, error } = await supabase
-        .from("messages")
-        .select("message_id, role, parts")
-        .eq("thread_id", threadId)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []).map((r) => ({
-        id: r.message_id,
-        role: r.role as UIMessage["role"],
-        parts: r.parts as UIMessage["parts"],
-      }));
+      const messages: UIMessage[] = [];
+      for (let start = 0; ; start += 500) {
+        const { data, error } = await supabase
+          .from("messages")
+          .select("message_id, role, parts")
+          .eq("thread_id", threadId)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(start, start + 499);
+        if (error) throw error;
+        messages.push(
+          ...(data ?? []).map((row) => ({
+            id: row.message_id,
+            role: row.role as UIMessage["role"],
+            parts: row.parts as UIMessage["parts"],
+          })),
+        );
+        if (!data || data.length < 500) return messages;
+      }
     },
   });
 

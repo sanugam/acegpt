@@ -17,6 +17,7 @@ import {
 
 import { groqChatConfig, groqInput } from "@/lib/ai/groq.server";
 import { recentImageContext } from "@/lib/ai/image-context";
+import { conversationContext } from "@/lib/ai/conversation-context";
 import type { Database } from "@/integrations/supabase/types";
 import {
   createLovableAiGatewayRunIdFetch,
@@ -137,6 +138,8 @@ export async function handleChat(request: Request) {
       return json(400, { error: (error as Error).message });
     }
   }
+  const context = conversationContext(preparedMessages);
+  preparedMessages = context.messages;
 
   const { data: thread } = await supabase
     .from("threads")
@@ -242,7 +245,10 @@ export async function handleChat(request: Request) {
 
   const result = streamText({
     ...modelConfig,
-    instructions: INSTRUCTIONS + modelConfig.instructionSuffix,
+    instructions:
+      INSTRUCTIONS +
+      modelConfig.instructionSuffix +
+      "\nAnswer every part of the user's request. Give detailed, complete responses when requested; do not impose an arbitrary three-question or chat-length limit. Earlier excerpts may omit details: say so instead of inventing a memory. Screen sharing only supplies images, not computer control. Computer actions are available only through an explicitly connected Mac companion; never claim an action occurred without its execution result.",
     messages: await convertToModelMessages(preparedMessages),
     abortSignal: request.signal,
     stopWhen: [stepCountIs(groqKey ? 5 : 50), hasToolCall("create_presentation")],
@@ -267,5 +273,6 @@ export async function handleChat(request: Request) {
   });
   // Only the Lovable gateway publishes its run ID. Waiting for it on a
   // direct Groq request would block the entire response indefinitely.
+  if (context.condensed) response.headers.set("X-Ace-Context", "condensed");
   return groqKey ? response : withLovableAiGatewayRunIdHeader(response, runIdFetch);
 }

@@ -43,6 +43,7 @@ import {
 import type { Deck } from "@/lib/pptx";
 import { PresentationCard } from "./PresentationCard";
 import { AnswerDownloads } from "./AnswerDownloads";
+import { ComputerPanel } from "./ComputerPanel";
 import { IMAGES_PER_REPLY } from "@/lib/ai/image-context";
 import { packImageRequest } from "@/lib/ai/image-request";
 import { prepareAttachment } from "@/lib/chat-attachments";
@@ -67,6 +68,7 @@ export function ChatWindow({
   const savedThreadId = useRef<string | null>(isGuestThread(threadId) ? null : threadId);
   const [input, setInput] = useState("");
   const [preparing, setPreparing] = useState(false);
+  const [condensed, setCondensed] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const transport = useMemo(
@@ -75,6 +77,7 @@ export function ChatWindow({
         api: "/api/chat",
         fetch: async (url, init) => {
           const response = await fetch(url, init);
+          setCondensed(response.headers.get("X-Ace-Context") === "condensed");
           if (response.ok) return response;
           const text = await response.text();
           let message = text;
@@ -268,6 +271,21 @@ export function ChatWindow({
               </MessageContent>
             </Message>
           )}
+          {!busy &&
+            messages.at(-1)?.role === "assistant" &&
+            messages.at(-1)?.parts.some((part) => part.type === "text" && part.text.trim()) && (
+              <button
+                type="button"
+                onClick={() =>
+                  sendMessage({
+                    text: "Continue your previous answer from where it ended. Do not repeat what you already wrote.",
+                  })
+                }
+                className="rounded-lg border px-3 py-2 text-sm hover:bg-card"
+              >
+                Continue reply
+              </button>
+            )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
@@ -339,6 +357,7 @@ export function ChatWindow({
           <PromptInputFooter>
             <PromptInputTools>
               <AttachButton />
+              {session && <ComputerPanel />}
               <PromptInputButton
                 tooltip={stream ? "Stop sharing" : "Share your screen"}
                 onClick={stream ? stopShare : startShare}
@@ -359,6 +378,11 @@ export function ChatWindow({
           Up to 3 pictures per message. Each reply sees the latest 3 pictures; older pictures stay
           in your chat. Files up to 5 MB.
         </p>
+        {condensed && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Earlier messages were condensed for this reply. Your full conversation stays saved.
+          </p>
+        )}
       </div>
     </main>
   );

@@ -80,7 +80,7 @@ describe("Groq integration", () => {
     expect(body.model).toBe(GROQ_TEXT_MODEL);
     expect(body.tools).toContainEqual({ type: "browser_search" });
     expect(JSON.stringify(body)).not.toContain("test-server-key");
-    expect(body.max_tokens).toBe(2048);
+    expect(body.max_tokens).toBe(4096);
   });
 
   it("routes screenshots to vision with a callable web search instead of an incompatible native search tool", () => {
